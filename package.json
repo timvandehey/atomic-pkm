@@ -1,0 +1,6 @@
+{
+  "name": "atomic-pkm",
+  "module": "server.js",
+  "type": "module",
+  "private": true
+}

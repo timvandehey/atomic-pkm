@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Atomic PKM</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <h1>Atomic PKM</h1>
+    </header>
+
+    <main id="gallery" class="grid-container">
+        </main>
+
+    <div id="editor-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <header>
+            <button onclick="closeEditor()">✕ Close</button>
+            <h2 id="editor-title">Edit Object</h2>
+            <button onclick="saveObject()">Save</button>
+        </header>
+        <div id="metadata-form">
+            </div>
+        <textarea id="body-editor" rows="15"></textarea>
+    </div>
+</div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>

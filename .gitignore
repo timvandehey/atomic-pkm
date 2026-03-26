@@ -1,3 +1,11 @@
+# Database
+atomic.sqlite
+# Lockfiles (optional, but standard for Bun)
+bun.lock
+
+# Local Data (Source of Truth)
+data/
+
 # dependencies (bun install)
 node_modules
 

@@ -1,5 +1,8 @@
 # Atomic PKM: Project Context & Strategy
 
+Do Not use nodejs (npm), use Bun (perferably built-in)
+DO NOT ever use typescript
+
 ## 1. Project Vision
 A **Thick Server** Personal Knowledge Management (PKM) system. The local file system is the "Source of Truth," and a high-performance Bun/SQLite middleware provides a structured API for a Vanilla JS (ESM) frontend.
 

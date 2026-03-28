@@ -1,19 +1,27 @@
-export async function loadGallery() {
-    const response = await fetch('/api/objects');
-    const objects = await response.json();
-    const container = document.getElementById('gallery');
+/**
+ * Renders an array of objects to the gallery container.
+ * This is the function the Search Bar calls directly.
+ */
+export function renderGallery(objects) {
+const container = document.getElementById('note-list');
     container.innerHTML = '';
 
     objects.forEach(obj => {
         const card = document.createElement('article');
         card.className = 'card';
-        // We'll dispatch a custom event or use a callback for the editor later
-        card.onclick = () => window.dispatchEvent(new CustomEvent('open-editor', { detail: obj }));
-        
+// Inside your renderGallery loop in gallery.js
+        card.onclick = () => {
+            document.getElementById('app').classList.add('show-editor');
+            
+            // Pass the WHOLE object 'obj' which was already fetched in loadGallery
+            window.dispatchEvent(new CustomEvent('open-editor', { detail: obj }));
+        };        
         const meta = typeof obj.metadata === 'string' ? JSON.parse(obj.metadata) : obj.metadata;
+        
+        // Your existing "Type-Aware" logic preserved here
         const displayData = obj.type === 'golf' 
-            ? `<div class="card-score">Score: <strong>${meta.score}</strong></div>` 
-            : `<div class="card-content">${obj.content.substring(0, 100)}...</div>`;
+            ? `<div class="card-score">Score: <strong>${meta.score || 'N/A'}</strong></div>` 
+            : `<div class="card-content">${(obj.content || '').substring(0, 100)}...</div>`;
 
         card.innerHTML = `
             <div class="card-type">${obj.type}</div>
@@ -23,4 +31,13 @@ export async function loadGallery() {
         `;
         container.appendChild(card);
     });
+}
+
+/**
+ * The initial load function that fetches all objects from the server.
+ */
+export async function loadGallery() {
+    const response = await fetch('/api/objects');
+    const objects = await response.json();
+    renderGallery(objects); // Simply hands the data to the renderer
 }

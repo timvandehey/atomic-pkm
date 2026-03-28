@@ -2,5 +2,8 @@
   "name": "atomic-pkm",
   "module": "server.js",
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "js-yaml": "^4.1.1"
+  }
 }

@@ -1,92 +1,90 @@
-// Helper to determine the best HTML input type
+import { loadGallery } from './gallery.js';
+
 function getInputType(key, value) {
     const k = key.toLowerCase();
-    
-    // 1. Check by Key Name
-    if (k.includes('date')) return 'date';
-    if (k.includes('color')) return 'color';
-    
-    // 2. Check by Value Type
-    if (typeof value === 'boolean' || value === 'true' || value === 'false') return 'checkbox';
-    
-    // If it's a number (or a string that looks like one)
-    if (!isNaN(value) && value.toString().trim() !== '') return 'number';
-    
+    if (k.includes('date') || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value))) return 'date';
+    if (typeof value === 'boolean') return 'checkbox';
+    if (typeof value === 'number') return 'number';
     return 'text';
 }
 
 export function initEditor() {
+    const metaForm = document.getElementById('metadata-form');
+    const bodyEditor = document.getElementById('body-editor');
+
     window.addEventListener('open-editor', (e) => {
         const obj = e.detail;
-        const modal = document.getElementById('editor-modal');
-        
-        // Ensure metadata is an object
+        bodyEditor.dataset.currentId = obj.id;
+        bodyEditor.value = obj.content || '';
         const meta = typeof obj.metadata === 'string' ? JSON.parse(obj.metadata) : obj.metadata;
-
-        // Set Body
-        document.getElementById('body-editor').value = obj.content;
-        
-        // Build Meta Form
-        const formContainer = document.getElementById('metadata-form');
-        formContainer.innerHTML = ''; 
-        
-        Object.keys(meta).forEach(key => {
-            const val = meta[key];
-            const type = getInputType(key, val);
-            
-            const div = document.createElement('div');
-            div.className = 'form-row';
-            
-            let inputHtml = '';
-            if (type === 'checkbox') {
-                const isChecked = val === true || val === 'true';
-                inputHtml = `<input type="checkbox" data-key="${key}" ${isChecked ? 'checked' : ''}>`;
-            } else if (type === 'number') {
-                // 'step="any"' allows decimals like 68.2
-                inputHtml = `<input type="number" step="any" data-key="${key}" value="${val}">`;
-            } else {
-                inputHtml = `<input type="text" data-key="${key}" value="${val}">`;
-            }
-
-            div.innerHTML = `<label>${key}</label>${inputHtml}`;
-            formContainer.appendChild(div);
-        });
-
-        const saveBtn = modal.querySelector('button[onclick="saveObject()"]');
-        saveBtn.onclick = () => saveObject(obj.id);
-        modal.style.display = 'block';
+        renderMetadataUI(meta, obj.title);
     });
-}
 
-async function saveObject(id) {
-    const content = document.getElementById('body-editor').value;
-    const inputs = document.querySelectorAll('#metadata-form input');
-    
-    const metadata = {};
-    inputs.forEach(input => {
-        const key = input.dataset.key;
-        if (input.type === 'checkbox') {
-            metadata[key] = input.checked;
-        } else if (input.type === 'number') {
-            metadata[key] = input.value.includes('.') ? parseFloat(input.value) : parseInt(input.value);
-        } else {
-            metadata[key] = input.value;
+    const monitorChanges = () => {
+        const saveBtn = document.getElementById('btn-save');
+        if (saveBtn) saveBtn.style.border = "2px solid #ffc107"; // Yellow border for "Dirty"
+    };
+
+    bodyEditor.addEventListener('input', monitorChanges);
+    metaForm.addEventListener('input', monitorChanges);
+
+    function renderMetadataUI(meta, title) {
+        metaForm.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0; font-size:1.2rem;">${title}</h2>
+                <button id="btn-add-prop" style="font-size:0.7rem; cursor:pointer;">+ Property</button>
+            </div>
+            <div id="fields-container"></div>
+        `;
+
+        const container = document.getElementById('fields-container');
+        for (const [key, value] of Object.entries(meta)) {
+            if (key.startsWith('_')) continue; 
+            appendField(container, key, value);
         }
-    });
 
-    const response = await fetch('/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, content, metadata })
-    });
+        document.getElementById('btn-add-prop').onclick = () => {
+            const newKey = prompt("Property name:");
+            if (newKey && !newKey.startsWith('_')) appendField(container, newKey, "");
+        };
+    }
 
-    if (response.ok) {
-        document.getElementById('editor-modal').style.display = 'none';
-        // Force a reload to trigger the server-side re-index and refresh the UI
-        window.location.reload(); 
+    function appendField(container, key, value) {
+        const type = getInputType(key, value);
+        let displayValue = value;
+        if (type === 'date' && value) {
+            try { displayValue = new Date(value).toISOString().split('T')[0]; } catch (e) { displayValue = value; }
+        }
+
+        const fieldDiv = document.createElement('div');
+        fieldDiv.className = 'meta-field';
+        fieldDiv.style = "display: flex; align-items: center; margin-bottom: 6px; gap: 8px;";
+        
+        fieldDiv.innerHTML = `
+            <label style="font-size: 0.8rem; width: 90px; font-weight: bold; overflow: hidden; text-overflow: ellipsis;">${key}:</label>
+            <input type="${type}" data-key="${key}" value="${displayValue}" ${type === 'checkbox' && value ? 'checked' : ''} 
+                   style="flex: 1; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+            <button class="delete-prop" style="background:none; border:none; cursor:pointer; font-size:0.8rem;" title="Delete Property">✕</button>
+        `;
+
+        fieldDiv.querySelector('.delete-prop').onclick = () => fieldDiv.remove();
+        container.appendChild(fieldDiv);
     }
 }
 
-window.closeEditor = () => {
-    document.getElementById('editor-modal').style.display = 'none';
-};
+export function clearEditor() {
+    const body = document.getElementById('body-editor');
+    const meta = document.getElementById('metadata-form');
+    const app = document.getElementById('app');
+
+    if (body) {
+        body.value = '';
+        body.dataset.currentId = '';
+    }
+    if (meta) {
+        meta.innerHTML = '<p style="color:#888; padding:20px;">Select a note from the sidebar...</p>';
+    }
+    if (app) {
+        app.classList.remove('show-editor');
+    }
+}

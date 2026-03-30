@@ -47,6 +47,19 @@ bindEvents() {
 
         // Close Button (using the new safety check)
         document.getElementById('btn-close')?.addEventListener('click', () => this.handleClose());
+
+        // Keyboard shortcut for Save (Cmd/Ctrl + S)
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
+                // Prevent the browser's default save-page action
+                e.preventDefault();
+                const saveBtn = document.getElementById('btn-save');
+                // Trigger save only if there are unsaved changes (button is enabled)
+                if (saveBtn && !saveBtn.disabled) {
+                    this.handleSave();
+                }
+            }
+        });
     },
 
     showCreateModal() {
@@ -161,6 +174,9 @@ async handleSave() {
             }
 
             await loadGallery();
+            this.showToast('Saved!');
+        } else {
+            this.showToast('Failed to save changes.', 'error');
         }
     },
 
@@ -209,6 +225,30 @@ async handleDelete() {
         }
     },
 
+    showToast(message, type = 'success') {
+        let toast = document.getElementById('toast-notification');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast-notification';
+            toast.className = 'toast';
+            const container = document.querySelector('.editor-view') || document.body;
+            container.appendChild(toast);
+        }
+
+        if (type === 'error') {
+            toast.classList.add('error');
+        } else {
+            toast.classList.remove('error');
+        }
+
+        toast.innerText = message;
+        toast.classList.add('show');
+        
+        if (this.toastTimeout) clearTimeout(this.toastTimeout);
+        this.toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
 };
 
 

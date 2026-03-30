@@ -305,6 +305,7 @@ body {
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    position: relative;
 }
 
 #body-editor {
@@ -470,4 +471,31 @@ body {
 .empty-meta-msg {
     color: var(--md-sys-color-outline);
     padding: 20px;
+}
+
+/* --- Toast Notification --- */
+.toast {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    padding: 12px 24px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    box-shadow: var(--md-sys-elevation-2);
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.error {
+    background: var(--md-sys-color-error);
+    color: var(--md-sys-color-on-error);
 }

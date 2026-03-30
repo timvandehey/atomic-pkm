@@ -14,19 +14,22 @@ export function initEditor() {
 
     window.addEventListener('open-editor', (e) => {
         const obj = e.detail;
+        const footerDiv = document.getElementById('editor-footer');
+        const footerText = document.getElementById('last-modified-text');
+        
         bodyEditor.dataset.currentId = obj.id;
-        bodyEditor.value = obj.content || '';
+        bodyEditor.value = (obj.content || '').trim();
+        
         const meta = typeof obj.metadata === 'string' ? JSON.parse(obj.metadata) : obj.metadata;
+        
+        if (footerDiv && footerText) {
+            const dateStr = meta._modifiedDate ? new Date(meta._modifiedDate).toLocaleString() : 'Never';
+            footerText.innerText = `File: ${obj.id}.md | Last Modified: ${dateStr}`;
+            footerDiv.style.display = 'block';
+        }
+
         renderMetadataUI(meta, obj.title);
     });
-
-    const monitorChanges = () => {
-        const saveBtn = document.getElementById('btn-save');
-        if (saveBtn) saveBtn.style.border = "2px solid #ffc107"; // Yellow border for "Dirty"
-    };
-
-    bodyEditor.addEventListener('input', monitorChanges);
-    metaForm.addEventListener('input', monitorChanges);
 
     function renderMetadataUI(meta, title) {
         metaForm.innerHTML = `
@@ -67,15 +70,29 @@ export function initEditor() {
             <button class="delete-prop" style="background:none; border:none; cursor:pointer; font-size:0.8rem;" title="Delete Property">✕</button>
         `;
 
-        fieldDiv.querySelector('.delete-prop').onclick = () => fieldDiv.remove();
+        fieldDiv.querySelector('.delete-prop').onclick = () => {
+            fieldDiv.remove();
+            document.getElementById('btn-save').style.border = "2px solid #ffc107";
+        };
+        
         container.appendChild(fieldDiv);
     }
+
+    bodyEditor.addEventListener('input', () => {
+        document.getElementById('btn-save').style.border = "2px solid #ffc107";
+    });
+
+    metaForm.addEventListener('input', () => {
+        document.getElementById('btn-save').style.border = "2px solid #ffc107";
+    });
 }
 
 export function clearEditor() {
     const body = document.getElementById('body-editor');
     const meta = document.getElementById('metadata-form');
     const app = document.getElementById('app');
+    const saveBtn = document.getElementById('btn-save');
+    const footerDiv = document.getElementById('editor-footer');
 
     if (body) {
         body.value = '';
@@ -86,5 +103,11 @@ export function clearEditor() {
     }
     if (app) {
         app.classList.remove('show-editor');
+    }
+    if (saveBtn) {
+        saveBtn.style.border = "1px solid #ccc";
+    }
+    if (footerDiv) {
+        footerDiv.style.display = 'none';
     }
 }

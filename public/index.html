@@ -21,12 +21,15 @@
 
     <main class="editor-view">
         <div class="editor-header" style="padding:10px; border-bottom:1px solid #eee;">
-            <button class="mobile-back" onclick="document.getElementById('app').classList.remove('show-editor')">← Back</button>
+            <button id="btn-close" >Close</button>
             <button id="btn-save">Save</button>
             <button id="btn-delete" style="color:red">Delete</button>
         </div>
         <div id="metadata-form" style="padding:15px; background:#fefefe; border-bottom:1px solid #eee;"></div>
-        <textarea id="body-editor" placeholder="Select a note..."></textarea>
+<textarea id="body-editor" placeholder="Select a note..."></textarea>
+<div id="editor-footer" style="display: none; padding: 10px; font-size: 0.75rem; color: #888; border-top: 1px solid #eee; background: #fafafa; text-align: right;">
+    <span id="last-modified-text"></span>
+</div>
     </main>
 </div>
 

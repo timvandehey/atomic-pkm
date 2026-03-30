@@ -32,7 +32,9 @@ bindEvents() {
 
         // Delete Button
         document.getElementById('btn-delete')?.addEventListener('click', () => this.handleDelete());
-        document.getElementById('btn-back')?.addEventListener('click', () => clearEditor());
+
+        // Close Button (using the new safety check)
+        document.getElementById('btn-close')?.addEventListener('click', () => this.handleClose());
     },
 
     showCreateModal() {
@@ -114,7 +116,7 @@ bindEvents() {
         }
     },
 
-    async handleSave() {
+async handleSave() {
         const bodyEditor = document.getElementById('body-editor');
         const id = bodyEditor.dataset.currentId;
         if (!id) return;
@@ -131,25 +133,66 @@ bindEvents() {
             body: JSON.stringify({ id, content: bodyEditor.value, metadata })
         });
 
-    if (response.ok) {
-        const saveBtn = document.getElementById('btn-save');
-        if (saveBtn) saveBtn.style.border = "1px solid #ccc"; // Reset to "Clean"
-        await loadGallery();
-        console.log("Saved and Clean");
-    }
+        if (response.ok) {
+            const saveBtn = document.getElementById('btn-save');
+            const footerText = document.getElementById('last-modified-text');
+            
+            if (saveBtn) saveBtn.style.border = "1px solid #ccc";
+            
+            if (footerText) {
+                const now = new Date().toLocaleString();
+                footerText.innerText = `File: ${id}.md | Last Modified: ${now}`;
+            }
+
+            await loadGallery();
+        }
     },
 
-    async handleDelete() {
+    updateFooter(content, modifiedDate) {
+        const footerText = document.getElementById('last-modified-text');
+        const footerDiv = document.getElementById('editor-footer');
+        
+        if (!footerText || !footerDiv) return;
+
+        const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const dateStr = new Date(modifiedDate).toLocaleString();
+        
+        footerText.innerText = `Words: ${words} | Last Modified: ${dateStr}`;
+        footerDiv.style.display = 'block';
+    },
+
+async handleDelete() {
         const bodyEditor = document.getElementById('body-editor');
         const id = bodyEditor.dataset.currentId;
-        if (id && confirm(`Delete "${id}"?`)) {
-            const res = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+        
+        if (id && confirm(`Delete "${id}" and its physical markdown file?`)) {
+            const res = await fetch('/api/delete', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ id }) 
+            });
+            
             if (res.ok) {
                 clearEditor();
                 await loadGallery();
             }
         }
     },
+
+    handleClose() {
+        const saveBtn = document.getElementById('btn-save');
+        // Check if the border is orange (the "Dirty" state)
+        const isDirty = saveBtn && saveBtn.style.border.includes('rgb(255, 193, 7)');
+
+        if (isDirty) {
+            if (confirm("You have unsaved changes. Discard them?")) {
+                clearEditor();
+            }
+        } else {
+            clearEditor();
+        }
+    },
+
 };
 
 

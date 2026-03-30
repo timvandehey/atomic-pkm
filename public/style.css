@@ -237,3 +237,42 @@ body {
     }
     .show-editor .editor-view { transform: translateX(-100%); }
 }
+
+
+
+
+.editor-view {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#body-editor {
+    flex: 1;
+    resize: none;
+    padding: 15px; /* Adjust this if you want more/less breathing room */
+    margin: 0;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    display: block;
+    width: 100%;
+    box-sizing: border-box; /* Crucial to keep padding from adding "ghost" lines */
+}
+
+#metadata-form {
+    flex-shrink: 0; /* Prevents the form from being squashed */
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#editor-footer {
+    flex-shrink: 0;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}

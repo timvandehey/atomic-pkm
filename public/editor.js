@@ -8,6 +8,13 @@ function getInputType(key, value) {
     return 'text';
 }
 
+function markDirty() {
+    const saveBtn = document.getElementById('btn-save');
+    const closeBtn = document.getElementById('btn-close');
+    if (saveBtn) saveBtn.disabled = false;
+    if (closeBtn) closeBtn.innerText = 'Cancel';
+}
+
 export function initEditor() {
     const metaForm = document.getElementById('metadata-form');
     const bodyEditor = document.getElementById('body-editor');
@@ -25,19 +32,24 @@ export function initEditor() {
         if (footerDiv && footerText) {
             const dateStr = meta._modifiedDate ? new Date(meta._modifiedDate).toLocaleString() : 'Never';
             footerText.innerText = `File: ${obj.id}.md | Last Modified: ${dateStr}`;
-            footerDiv.style.display = 'block';
+            footerDiv.classList.remove('hidden');
         }
 
         renderMetadataUI(meta, obj.title);
+
+        const saveBtn = document.getElementById('btn-save');
+        const closeBtn = document.getElementById('btn-close');
+        if (saveBtn) saveBtn.disabled = true;
+        if (closeBtn) closeBtn.innerText = 'Close';
     });
 
     function renderMetadataUI(meta, title) {
         metaForm.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2 style="margin:0; font-size:1.2rem;">${title}</h2>
-                <button id="btn-add-prop" style="font-size:0.7rem; cursor:pointer;">+ Property</button>
+            <div class="meta-header">
+                <h2 class="meta-title"><span class="meta-toggle-icon">▸</span> ${title}</h2>
+                <button id="btn-add-prop" class="btn-add-prop">+ Property</button>
             </div>
-            <div id="fields-container"></div>
+            <div id="fields-container" class="hidden"></div>
         `;
 
         const container = document.getElementById('fields-container');
@@ -46,10 +58,25 @@ export function initEditor() {
             appendField(container, key, value);
         }
 
-        document.getElementById('btn-add-prop').onclick = () => {
+        const metaHeader = metaForm.querySelector('.meta-header');
+        const toggleIcon = metaForm.querySelector('.meta-toggle-icon');
+
+        metaHeader.addEventListener('click', (e) => {
+            // Prevent toggling when the button is clicked
+            if (e.target.closest('#btn-add-prop')) return;
+
+            container.classList.toggle('hidden');
+            toggleIcon.textContent = container.classList.contains('hidden') ? '▸' : '▾';
+        });
+
+        document.getElementById('btn-add-prop').addEventListener('click', () => {
             const newKey = prompt("Property name:");
-            if (newKey && !newKey.startsWith('_')) appendField(container, newKey, "");
-        };
+            if (newKey && !newKey.startsWith('_')) {
+                appendField(container, newKey, "");
+                container.classList.remove('hidden');
+                toggleIcon.textContent = '▾';
+            }
+        });
     }
 
     function appendField(container, key, value) {
@@ -61,30 +88,23 @@ export function initEditor() {
 
         const fieldDiv = document.createElement('div');
         fieldDiv.className = 'meta-field';
-        fieldDiv.style = "display: flex; align-items: center; margin-bottom: 6px; gap: 8px;";
         
         fieldDiv.innerHTML = `
-            <label style="font-size: 0.8rem; width: 90px; font-weight: bold; overflow: hidden; text-overflow: ellipsis;">${key}:</label>
-            <input type="${type}" data-key="${key}" value="${displayValue}" ${type === 'checkbox' && value ? 'checked' : ''} 
-                   style="flex: 1; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
-            <button class="delete-prop" style="background:none; border:none; cursor:pointer; font-size:0.8rem;" title="Delete Property">✕</button>
+            <label class="meta-label">${key}:</label>
+            <input type="${type}" data-key="${key}" value="${displayValue}" ${type === 'checkbox' && value ? 'checked' : ''} class="meta-input">
+            <button class="delete-prop btn-delete-prop" title="Delete Property">✕</button>
         `;
 
-        fieldDiv.querySelector('.delete-prop').onclick = () => {
+        fieldDiv.querySelector('.delete-prop').addEventListener('click', () => {
             fieldDiv.remove();
-            document.getElementById('btn-save').style.border = "2px solid #ffc107";
-        };
+            markDirty();
+        });
         
         container.appendChild(fieldDiv);
     }
 
-    bodyEditor.addEventListener('input', () => {
-        document.getElementById('btn-save').style.border = "2px solid #ffc107";
-    });
-
-    metaForm.addEventListener('input', () => {
-        document.getElementById('btn-save').style.border = "2px solid #ffc107";
-    });
+    bodyEditor.addEventListener('input', markDirty);
+    metaForm.addEventListener('input', markDirty);
 }
 
 export function clearEditor() {
@@ -92,6 +112,7 @@ export function clearEditor() {
     const meta = document.getElementById('metadata-form');
     const app = document.getElementById('app');
     const saveBtn = document.getElementById('btn-save');
+    const closeBtn = document.getElementById('btn-close');
     const footerDiv = document.getElementById('editor-footer');
 
     if (body) {
@@ -99,15 +120,18 @@ export function clearEditor() {
         body.dataset.currentId = '';
     }
     if (meta) {
-        meta.innerHTML = '<p style="color:#888; padding:20px;">Select a note from the sidebar...</p>';
+        meta.innerHTML = '<p class="empty-meta-msg">Select a note from the sidebar...</p>';
     }
     if (app) {
         app.classList.remove('show-editor');
     }
     if (saveBtn) {
-        saveBtn.style.border = "1px solid #ccc";
+        saveBtn.disabled = true;
+    }
+    if (closeBtn) {
+        closeBtn.innerText = 'Close';
     }
     if (footerDiv) {
-        footerDiv.style.display = 'none';
+        footerDiv.classList.add('hidden');
     }
 }

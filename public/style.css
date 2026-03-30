@@ -1,14 +1,46 @@
 :root {
-  --bg-color: #f0f2f5;
-  --card-bg: #ffffff;
-  --text-main: #1c1e21;
-  --accent: #2980b9;
+  /* Material 3 Light Theme Palette - Blue */
+  --md-sys-color-primary: #0a56d0;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d3e3fd;
+  --md-sys-color-on-primary-container: #041e49;
+  --md-sys-color-secondary: #535f70;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #d6e3ff;
+  --md-sys-color-on-secondary-container: #101c2b;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-background: #f8fafd;
+  --md-sys-color-on-background: #1a1c1e;
+  --md-sys-color-surface: #f8fafd;
+  --md-sys-color-on-surface: #1a1c1e;
+  --md-sys-color-surface-variant: #dfe2eb;
+  --md-sys-color-on-surface-variant: #43474e;
+  --md-sys-color-outline: #74777f;
+
+  /* Typography & Shapes */
+  --md-sys-typescale-body-large-font: "Roboto", system-ui, -apple-system, sans-serif;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 999px;
+
+  /* Elevation */
+  --md-sys-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --md-sys-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+
+  /* Legacy variable mappings */
+  --bg-color: var(--md-sys-color-background);
+  --card-bg: var(--md-sys-color-surface);
+  --text-main: var(--md-sys-color-on-background);
+  --accent: var(--md-sys-color-primary);
   --spacing: 16px;
-  --border-radius: 12px;
+  --border-radius: var(--md-sys-shape-corner-medium);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--md-sys-typescale-body-large-font);
   background-color: var(--bg-color);
   color: var(--text-main);
   margin: 0;
@@ -19,7 +51,7 @@ header {
   max-width: 1200px;
   margin: 0 auto var(--spacing) auto;
   padding-bottom: var(--spacing);
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--md-sys-color-surface-variant);
 }
 
 /* 1. The Responsive Grid */
@@ -51,14 +83,16 @@ header {
   background: var(--card-bg);
   padding: var(--spacing);
   border-radius: var(--border-radius);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: var(--md-sys-elevation-1);
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease;
+  border: 1px solid var(--md-sys-color-surface-variant);
 }
 
 .card:hover {
-  transform: translateY(-2px);
+  box-shadow: var(--md-sys-elevation-2);
+  transform: translateY(-1px);
 }
 
 .card-type {
@@ -77,7 +111,7 @@ header {
 .card-content {
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #4b4f56;
+  color: var(--md-sys-color-on-surface-variant);
   flex-grow: 1;
   margin-bottom: 12px;
   white-space: pre-wrap; /* Keeps your Markdown spacing */
@@ -85,38 +119,7 @@ header {
 
 .card-location {
   font-size: 0.85rem;
-  color: #8d949e;
-}
-
-.card-score {
-    font-size: 2rem;
-    color: #27ae60; /* A nice "putting green" color */
-    margin: 10px 0;
-    text-align: center;
-}
-
-.modal {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: white;
-    z-index: 1000;
-    overflow-y: auto;
-}
-
-.modal-content {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.modal-content header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    background: white;
-    padding: 10px 0;
+  color: var(--md-sys-color-outline);
 }
 
 #metadata-form, .form-container {
@@ -124,18 +127,9 @@ header {
     gap: 10px;
     margin-bottom: 20px;
     padding: 15px;
-    background: #f9f9f9;
+    background: var(--md-sys-color-surface-variant);
     border-radius: 8px;
 }
-
-.form-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.form-row label { font-weight: bold; font-size: 0.8rem; text-transform: uppercase; }
-.form-row input { padding: 8px; width: 60%; border: 1px solid #ddd; border-radius: 4px; }
 
 #body-editor {
     width: 100%;
@@ -146,6 +140,53 @@ header {
     resize: none;
 }
 
+/* --- M3 Base Elements --- */
+button {
+    font-family: var(--md-sys-typescale-body-large-font);
+    font-weight: 500;
+    border-radius: var(--md-sys-shape-corner-full);
+    border: none;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s, filter 0.2s;
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+button:hover {
+    box-shadow: var(--md-sys-elevation-1);
+    filter: brightness(0.95);
+}
+
+button:disabled {
+    background: var(--md-sys-color-surface-variant) !important;
+    color: var(--md-sys-color-outline) !important;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: none;
+}
+
+input, select, textarea {
+    font-family: inherit;
+    padding: 16px 16px 8px 16px;
+    border-radius: var(--md-sys-shape-corner-small) var(--md-sys-shape-corner-small) 0 0;
+    border: none;
+    border-bottom: 1px solid var(--md-sys-color-on-surface-variant);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 5%, var(--md-sys-color-surface-variant));
+    color: var(--md-sys-color-on-surface);
+    box-sizing: border-box;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-bottom: 2px solid var(--md-sys-color-primary);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface-variant));
+}
 
 /* --- NEW LAYOUT ENGINE (Add to bottom of style.css) --- */
 
@@ -170,30 +211,47 @@ body {
 .sidebar { 
     width: 350px; 
     min-width: 300px;
-    border-right: 1px solid #ddd; 
+    border-right: 1px solid var(--md-sys-color-surface-variant); 
     display: flex; 
     flex-direction: column; 
-    background: #fdfdfd; 
+    background: var(--md-sys-color-surface-variant); 
+}
+
+.sidebar-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px;
+    background: var(--md-sys-color-surface-variant);
+}
+
+.sidebar-header input, .sidebar-header select {
+    flex: 1;
+    min-width: 100px;
+}
+
+.sidebar-header button {
+    padding: 10px 16px;
 }
 
 /* Make sidebar cards more compact */
 .sidebar .card {
-    padding: 10px;
+    padding: 12px 16px;
     margin-bottom: 8px;
-    border-radius: 4px;
-    border: 1px solid #eee;
-    background: white;
+    border-radius: var(--md-sys-shape-corner-medium);
+    border: none;
+    background: var(--md-sys-color-surface);
 }
 
 .sidebar .card h3 {
-    font-size: 1rem;
-    margin: 5px 0;
+    font-size: 1.1rem;
+    margin: 0 0 5px 0;
 }
 
 .sidebar .card-type {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #007bff;
+    color: var(--md-sys-color-primary);
 }
 
 /* Hide the body snippet in the sidebar to save space */
@@ -212,7 +270,7 @@ body {
     flex: 1; 
     display: flex; 
     flex-direction: column; 
-    background: white;
+    background: var(--md-sys-color-surface);
     padding: 0;
 }
 
@@ -224,7 +282,8 @@ body {
     border: none; 
     outline: none; 
     resize: none; 
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    background: transparent;
 }
 
 /* 5. Mobile Responsiveness */
@@ -261,6 +320,14 @@ body {
     display: block;
     width: 100%;
     box-sizing: border-box; /* Crucial to keep padding from adding "ghost" lines */
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+}
+
+#body-editor:focus {
+    outline: none;
+    border-bottom: none;
+    background: transparent;
 }
 
 #metadata-form {
@@ -275,4 +342,132 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+}
+
+/* --- Utility & State Classes --- */
+.sync-status {
+    font-size: 0.6rem;
+    color: var(--md-sys-color-outline);
+}
+
+.editor-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    display: flex;
+    gap: 8px;
+    background: var(--md-sys-color-surface);
+}
+
+#btn-save, #btn-submit-create {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+.btn-delete {
+    background: var(--md-sys-color-error) !important;
+    color: var(--md-sys-color-on-error) !important;
+    margin-left: auto;
+}
+
+.metadata-form {
+    padding: 16px;
+    background: var(--md-sys-color-surface);
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+}
+
+.editor-footer {
+    padding: 10px;
+    font-size: 0.75rem;
+    color: var(--md-sys-color-outline);
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    background: var(--md-sys-color-surface-variant);
+    text-align: right;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modal-overlay {
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--md-sys-color-surface);
+    padding: 24px;
+    width: 320px;
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    box-shadow: var(--md-sys-elevation-2);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.meta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    cursor: pointer;
+    user-select: none; /* Prevent text selection on click */
+}
+
+.meta-title {
+    margin: 0;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+}
+
+.meta-toggle-icon {
+    margin-right: 8px;
+    width: 1em; /* Reserve space to prevent layout shift */
+}
+
+.btn-add-prop {
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.meta-field {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 8px;
+}
+
+.meta-label {
+    font-size: 0.8rem;
+    width: 90px;
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--md-sys-color-on-surface);
+}
+
+.meta-input {
+    flex: 1;
+}
+
+.btn-delete-prop {
+    background: transparent !important;
+    color: var(--md-sys-color-error) !important;
+    box-shadow: none !important;
+    padding: 6px;
+    border-radius: 50%;
+}
+
+.empty-meta-msg {
+    color: var(--md-sys-color-outline);
+    padding: 20px;
 }

@@ -2,6 +2,17 @@ import { loadGallery, renderGallery } from './gallery.js';
 import { initEditor, clearEditor } from './editor.js';
 
 /**
+ * Utility to limit the rate at which a function fires.
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+/**
  * Encapsulated App Module
  */
 const App = {
@@ -17,12 +28,13 @@ const App = {
 
 bindEvents() {
         // Search & Filter
-        document.getElementById('search-bar')?.addEventListener('input', () => this.performSearch());
+        document.getElementById('search-bar')?.addEventListener('input', debounce(() => this.performSearch(), 300));
         document.getElementById('type-filter')?.addEventListener('change', () => this.performSearch());
 
         // Create Note
         document.getElementById('btn-new')?.addEventListener('click', () => this.showCreateModal());
         document.getElementById('btn-submit-create')?.addEventListener('click', () => this.submitNewObject());
+        document.getElementById('btn-cancel-create')?.addEventListener('click', () => this.closeCreateModal());
         
         // Sync Button
         document.getElementById('btn-sync')?.addEventListener('click', () => this.handleSync());
@@ -39,12 +51,12 @@ bindEvents() {
 
     showCreateModal() {
         const modal = document.getElementById('create-modal');
-        modal.style.display = 'block';
+        modal.classList.remove('hidden');
         document.getElementById('new-title').focus();
     },
 
     closeCreateModal() {
-        document.getElementById('create-modal').style.display = 'none';
+        document.getElementById('create-modal').classList.add('hidden');
         document.getElementById('new-title').value = '';
         document.getElementById('new-type').value = 'note';
     },
@@ -122,9 +134,11 @@ async handleSave() {
         if (!id) return;
 
         const metadata = {};
-        document.querySelectorAll('#metadata-form input').forEach(input => {
-            const key = input.dataset.key;
-            metadata[key] = input.type === 'checkbox' ? input.checked : (input.type === 'number' ? Number(input.value) : input.value);
+        // Target .meta-input to capture input, select, and textarea elements
+        document.querySelectorAll('#metadata-form .meta-input').forEach(field => {
+            const key = field.dataset.key;
+            metadata[key] = field.type === 'checkbox' ? field.checked : 
+                            (field.type === 'number' ? Number(field.value) : field.value);
         });
 
         const response = await fetch('/api/save', {
@@ -135,9 +149,11 @@ async handleSave() {
 
         if (response.ok) {
             const saveBtn = document.getElementById('btn-save');
+            const closeBtn = document.getElementById('btn-close');
             const footerText = document.getElementById('last-modified-text');
             
-            if (saveBtn) saveBtn.style.border = "1px solid #ccc";
+            if (saveBtn) saveBtn.disabled = true;
+            if (closeBtn) closeBtn.innerText = 'Close';
             
             if (footerText) {
                 const now = new Date().toLocaleString();
@@ -158,7 +174,7 @@ async handleSave() {
         const dateStr = new Date(modifiedDate).toLocaleString();
         
         footerText.innerText = `Words: ${words} | Last Modified: ${dateStr}`;
-        footerDiv.style.display = 'block';
+        footerDiv.classList.remove('hidden');
     },
 
 async handleDelete() {
@@ -181,8 +197,8 @@ async handleDelete() {
 
     handleClose() {
         const saveBtn = document.getElementById('btn-save');
-        // Check if the border is orange (the "Dirty" state)
-        const isDirty = saveBtn && saveBtn.style.border.includes('rgb(255, 193, 7)');
+        // Check if the save button is enabled
+        const isDirty = saveBtn && !saveBtn.disabled;
 
         if (isDirty) {
             if (confirm("You have unsaved changes. Discard them?")) {

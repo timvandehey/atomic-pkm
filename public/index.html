@@ -5,31 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atomic PKM</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Toast UI Editor -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
 </head>
 <body>
 
 <div class="app-container" id="app">
     <aside class="sidebar">
 <div class="sidebar-header">
-    <button id="btn-new">+</button>
+    <div class="menu-container">
+        <button id="btn-menu" title="Menu">☰</button>
+        <div id="menu-dropdown" class="dropdown-content hidden">
+            <button id="btn-sync" title="Sync Files">🔄 Sync Data</button>
+        </div>
+    </div>
+    <button id="btn-new" title="New Note">+</button>
     <input type="text" id="search-bar" placeholder="Search...">
-    <button id="btn-sync" title="Sync Files">🔄 </button><span id="sync-status" class="sync-status"></span>
     <select id="type-filter"><option value="">All</option></select>
 </div>
         <div id="note-list"></div>
     </aside>
 
+    <div id="sidebar-resizer" class="resizer"></div>
+
     <main class="editor-view">
-        <div class="editor-header">
-            <button id="btn-close" >Close</button>
-            <button id="btn-save" disabled>Save</button>
-            <button id="btn-delete" class="btn-delete">Delete</button>
+        <div id="editor-placeholder" class="empty-state">
+            <div class="empty-state-content">
+                <span class="empty-state-icon">📝</span>
+                <p>Select a note from the sidebar to start editing</p>
+            </div>
         </div>
-        <div id="metadata-form" class="metadata-form"></div>
-<textarea id="body-editor" placeholder="Select a note..."></textarea>
-<div id="editor-footer" class="editor-footer hidden">
-    <span id="last-modified-text"></span>
-</div>
+
+        <div id="editor-container" class="hidden">
+            <div class="editor-header">
+                <button id="btn-close" >Close</button>
+                <button id="btn-save" disabled>Save</button>
+                <button id="btn-delete" class="btn-delete">Delete</button>
+            </div>
+            <div id="metadata-form" class="metadata-form"></div>
+            <div id="body-editor"></div>
+            <div id="editor-footer" class="editor-footer hidden">
+                <span id="last-modified-text"></span>
+            </div>
+        </div>
     </main>
 </div>
 
@@ -42,6 +60,7 @@
     </div>
 </div>
 
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>

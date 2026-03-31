@@ -1,5 +1,5 @@
 import { loadGallery, renderGallery } from './gallery.js';
-import { initEditor, clearEditor } from './editor.js';
+import { initEditor, clearEditor, getEditorContent } from './editor.js';
 
 /**
  * Utility to limit the rate at which a function fires.
@@ -21,12 +21,70 @@ const App = {
         await loadGallery();
         await this.populateTypeFilter();
         initEditor();
+        this.initResizer();
 
         // 2. Attach Event Listeners (Replacing HTML onclicks)
         this.bindEvents();
     },
 
+    initResizer() {
+        const sidebar = document.querySelector('.sidebar');
+        const resizer = document.getElementById('sidebar-resizer');
+        if (!resizer || !sidebar) return;
+
+        // Load saved width
+        const savedWidth = localStorage.getItem('sidebar-width');
+        if (savedWidth) {
+            sidebar.style.width = `${savedWidth}px`;
+        }
+
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            // Disable pointer events on the editor to prevent iframe issues or selection
+            document.querySelector('.editor-view').style.pointerEvents = 'none';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const offset = 0; // Adjust if body has margin/padding
+            let newWidth = e.clientX - offset;
+
+            // Constraints are handled by CSS min-width/max-width, 
+            // but we apply them here for smoother feedback
+            if (newWidth < 250) newWidth = 250;
+            if (newWidth > 600) newWidth = 600;
+
+            sidebar.style.width = `${newWidth}px`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                document.querySelector('.editor-view').style.pointerEvents = 'auto';
+                
+                // Save width to localStorage
+                localStorage.setItem('sidebar-width', sidebar.offsetWidth);
+            }
+        });
+    },
+
 bindEvents() {
+        // Hamburger Menu
+        document.getElementById('btn-menu')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('menu-dropdown')?.classList.toggle('hidden');
+        });
+
+        // Close menu when clicking outside
+        window.addEventListener('click', () => {
+            document.getElementById('menu-dropdown')?.classList.add('hidden');
+        });
+
         // Search & Filter
         document.getElementById('search-bar')?.addEventListener('input', debounce(() => this.performSearch(), 300));
         document.getElementById('type-filter')?.addEventListener('change', () => this.performSearch());
@@ -130,14 +188,24 @@ bindEvents() {
 
     async handleSync() {
         const syncBtn = document.getElementById('btn-sync');
-        syncBtn.innerText = "⏳";
+        const originalText = syncBtn.innerHTML;
+        syncBtn.innerHTML = "⏳ Syncing...";
+        syncBtn.disabled = true;
+        
         clearEditor();
-        const response = await fetch('/api/sync', { method: 'POST' });
-        if (response.ok) {
-            await loadGallery();
-            syncBtn.innerText = "🔄";
-            const status = document.getElementById('sync-status');
-            if (status) status.innerText = `Synced: ${new Date().toLocaleTimeString()}`;
+        try {
+            const response = await fetch('/api/sync', { method: 'POST' });
+            if (response.ok) {
+                await loadGallery();
+                this.showToast('Data synced successfully!');
+            } else {
+                this.showToast('Sync failed.', 'error');
+            }
+        } catch (err) {
+            this.showToast('Sync error.', 'error');
+        } finally {
+            syncBtn.innerHTML = originalText;
+            syncBtn.disabled = false;
         }
     },
 
@@ -146,6 +214,7 @@ async handleSave() {
         const id = bodyEditor.dataset.currentId;
         if (!id) return;
 
+        const content = getEditorContent();
         const metadata = {};
         // Target .meta-input to capture input, select, and textarea elements
         document.querySelectorAll('#metadata-form .meta-input').forEach(field => {
@@ -157,7 +226,7 @@ async handleSave() {
         const response = await fetch('/api/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, content: bodyEditor.value, metadata })
+            body: JSON.stringify({ id, content, metadata })
         });
 
         if (response.ok) {
@@ -186,7 +255,8 @@ async handleSave() {
         
         if (!footerText || !footerDiv) return;
 
-        const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const actualContent = content || getEditorContent();
+        const words = actualContent.trim() ? actualContent.trim().split(/\s+/).length : 0;
         const dateStr = new Date(modifiedDate).toLocaleString();
         
         footerText.innerText = `Words: ${words} | Last Modified: ${dateStr}`;

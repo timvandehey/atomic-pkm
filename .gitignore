@@ -1,5 +1,6 @@
 # Database
 atomic.sqlite
+
 # Lockfiles (optional, but standard for Bun)
 bun.lock
 

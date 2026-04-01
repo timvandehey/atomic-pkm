@@ -128,8 +128,39 @@ body {
     width: 100%;
 }
 
-.search-main input {
+.search-input-wrapper {
+    position: relative;
     flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrapper input {
+    width: 100%;
+    padding-right: 2.5rem !important;
+}
+
+.btn-clear-search {
+    position: absolute;
+    right: 0.25rem;
+    background: transparent !important;
+    border: none !important;
+    color: var(--md-sys-color-outline) !important;
+    padding: 0.25rem !important;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.btn-clear-search .material-symbols-rounded {
+    font-size: 1.25rem;
+}
+
+.btn-clear-search:hover {
+    color: var(--md-sys-color-primary) !important;
 }
 
 #btn-toggle-advanced {
@@ -155,6 +186,21 @@ body {
     width: 100%;
     font-size: 0.85rem !important;
     padding: 0.5rem 0.75rem !important;
+}
+
+.btn-save-search {
+    font-size: 0.85rem !important;
+    padding: 0.5rem !important;
+    background: var(--md-sys-color-primary-container) !important;
+    color: var(--md-sys-color-on-primary-container) !important;
+    width: 100%;
+    margin-top: 0.25rem;
+    border-radius: var(--md-sys-shape-corner-small) !important;
+}
+
+.btn-save-search:hover {
+    filter: brightness(0.95);
+    box-shadow: var(--md-sys-elevation-1);
 }
 
 .sidebar-header {
@@ -305,10 +351,35 @@ body {
     opacity: 0.5;
 }
 
-#body-editor { 
+#body-viewer, #body-editor { 
     flex: 1; 
     overflow-y: auto;
     background: transparent;
+}
+
+.body-viewer {
+    padding: 1.5rem 2rem;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Toast UI Viewer Overrides to match theme */
+.toastui-editor-contents {
+    font-family: inherit !important;
+    font-size: inherit !important;
+    color: inherit !important;
+}
+
+/* Icon alignment */
+.material-symbols-rounded {
+    font-size: 1.5rem;
+    vertical-align: middle;
+}
+
+.btn-primary {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
 }
 
 /* Toast UI Editor Styles */
@@ -328,6 +399,22 @@ body {
     overflow-y: auto;
     background: var(--md-sys-color-surface);
     border-bottom: 0.0625rem solid var(--md-sys-color-surface-variant); /* 1px */
+}
+
+/* View-only state for metadata */
+#metadata-form.view-only {
+    opacity: 0.9;
+}
+
+#metadata-form.view-only .meta-input {
+    pointer-events: none;
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+#metadata-form.view-only #btn-add-prop,
+#metadata-form.view-only .btn-delete-prop {
+    display: none !important;
 }
 
 .metadata-form {
@@ -355,10 +442,12 @@ body {
 
 .meta-toggle-icon {
     margin-right: 0.75rem; /* 12px */
-    width: 1em;
-    font-size: 0.8em;
+    width: 1.5rem;
+    font-size: 1.5rem !important;
     color: var(--md-sys-color-outline);
     transition: transform 0.2s ease;
+    transform: rotate(-90deg); /* Start collapsed */
+    display: inline-block;
 }
 
 .btn-add-prop {

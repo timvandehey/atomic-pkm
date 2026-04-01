@@ -101,10 +101,33 @@ bindEvents() {
         });
 
         // Search & Filter
-        const searchHandler = debounce(() => this.performSearch(), 300);
-        document.getElementById('search-bar')?.addEventListener('input', searchHandler);
+        const searchBar = document.getElementById('search-bar');
+        const clearSearchBtn = document.getElementById('btn-clear-search');
+        
+        const searchHandler = debounce(() => {
+            this.performSearch();
+            // Toggle clear button visibility
+            if (searchBar.value) {
+                clearSearchBtn.classList.remove('hidden');
+            } else {
+                clearSearchBtn.classList.add('hidden');
+            }
+        }, 300);
+
+        searchBar?.addEventListener('input', searchHandler);
         document.getElementById('type-filter')?.addEventListener('change', () => this.performSearch());
         document.getElementById('tag-filter')?.addEventListener('input', searchHandler);
+
+        // Clear Search Click
+        clearSearchBtn?.addEventListener('click', () => {
+            searchBar.value = "";
+            clearSearchBtn.classList.add('hidden');
+            this.performSearch();
+            searchBar.focus();
+        });
+
+        // Save Search
+        document.getElementById('btn-save-search')?.addEventListener('click', () => this.handleSaveSearch());
 
         // Create Note
         document.getElementById('btn-new')?.addEventListener('click', () => this.showCreateModal());
@@ -173,7 +196,10 @@ bindEvents() {
 
             const newObj = objects.find(o => o.id === result.id);
             if (newObj) {
+                document.getElementById('app').classList.add('show-editor');
                 window.dispatchEvent(new CustomEvent('open-editor', { detail: newObj }));
+                // For new notes, switch to Edit mode immediately
+                import('./editor.js').then(m => m.setViewMode(false));
             }
         }
     },
@@ -204,10 +230,57 @@ bindEvents() {
         });
     },
 
+    async handleSaveSearch() {
+        const query = document.getElementById('search-bar').value;
+        const type = document.getElementById('type-filter').value;
+        const tag = document.getElementById('tag-filter').value;
+
+        if (!query && !type && !tag) return alert("Search is empty. Nothing to save.");
+
+        const title = prompt("Enter a name for this saved search:", "My Search");
+        if (!title) return;
+
+        // Create a 'query' type object
+        const response = await fetch('/api/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                title, 
+                type: 'query'
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Now save the search params as metadata
+            // We need to wait a tiny bit for the file watcher to sync the new file
+            // Or we just call save immediately
+            await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: result.id, 
+                    content: `This is a saved search for:\n- Query: ${query}\n- Type: ${type}\n- Tag: ${tag}`, 
+                    metadata: {
+                        title,
+                        type: 'query',
+                        search_query: query,
+                        search_type: type,
+                        search_tag: tag
+                    }
+                })
+            });
+
+            this.showToast('Search saved!');
+            await loadGallery();
+        }
+    },
+
     async handleSync() {
         const syncBtn = document.getElementById('btn-sync');
-        const originalText = syncBtn.innerHTML;
-        syncBtn.innerHTML = "⏳ Syncing...";
+        const originalHTML = syncBtn.innerHTML;
+        syncBtn.innerHTML = '<span class="material-symbols-rounded">sync</span> Syncing...';
         syncBtn.disabled = true;
         
         clearEditor();
@@ -222,7 +295,7 @@ bindEvents() {
         } catch (err) {
             this.showToast('Sync error.', 'error');
         } finally {
-            syncBtn.innerHTML = originalText;
+            syncBtn.innerHTML = originalHTML;
             syncBtn.disabled = false;
         }
     },
@@ -249,11 +322,20 @@ async handleSave() {
 
         if (response.ok) {
             const saveBtn = document.getElementById('btn-save');
+            const viewBtn = document.getElementById('btn-view-toggle');
             const closeBtn = document.getElementById('btn-close');
             const footerText = document.getElementById('last-modified-text');
             
-            if (saveBtn) saveBtn.disabled = true;
-            if (closeBtn) closeBtn.innerText = 'Close';
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.classList.add('hidden');
+            }
+            if (viewBtn) viewBtn.classList.add('hidden'); // Hide both, will revert to View mode
+
+            // Switch back to View mode after save
+            import('./editor.js').then(m => m.setViewMode(true));
+
+            if (closeBtn) closeBtn.innerHTML = '<span class="material-symbols-rounded">close</span>';
             
             if (footerText) {
                 const now = new Date().toLocaleString();
@@ -301,15 +383,16 @@ async handleDelete() {
 
     handleClose() {
         const saveBtn = document.getElementById('btn-save');
-        // Check if the save button is enabled
         const isDirty = saveBtn && !saveBtn.disabled;
 
         if (isDirty) {
             if (confirm("You have unsaved changes. Discard them?")) {
                 clearEditor();
+                import('./editor.js').then(m => m.setViewMode(true));
             }
         } else {
             clearEditor();
+            import('./editor.js').then(m => m.setViewMode(true));
         }
     },
 

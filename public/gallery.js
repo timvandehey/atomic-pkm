@@ -12,11 +12,31 @@ export function renderGallery(objects) {
         card.className = 'card';
 // Inside your renderGallery loop in gallery.js
         card.onclick = () => {
+            if (obj.type === 'query') {
+                const meta = typeof obj.metadata === 'string' ? JSON.parse(obj.metadata) : obj.metadata;
+
+                // Populate search inputs
+                document.getElementById('search-bar').value = meta.search_query || "";
+                document.getElementById('type-filter').value = meta.search_type || "";
+                document.getElementById('tag-filter').value = meta.search_tag || "";
+
+                // Show advanced panel if filters are active
+                if (meta.search_type || meta.search_tag) {
+                    document.getElementById('advanced-search').classList.remove('hidden');
+                }
+
+                // Trigger the search
+                // Note: We need to access the App instance. 
+                // Since App is exported as default, we can use a custom event or reach out to it.
+                // For simplicity, let's just trigger the 'input' event on search-bar.
+                document.getElementById('search-bar').dispatchEvent(new Event('input'));
+                return;
+            }
+
             document.getElementById('app').classList.add('show-editor');
-            
-            // Pass the WHOLE object 'obj' which was already fetched in loadGallery
             window.dispatchEvent(new CustomEvent('open-editor', { detail: obj }));
-        };        
+        };
+        
         const meta = typeof obj.metadata === 'string' ? JSON.parse(obj.metadata) : obj.metadata;
         
         // Your existing "Type-Aware" logic preserved here

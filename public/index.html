@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Toast UI Editor -->
     <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
 </head>
 <body>
 
@@ -14,20 +16,24 @@
     <aside class="sidebar">
 <div class="sidebar-header">
     <div class="menu-container">
-        <button id="btn-menu" title="Menu">☰</button>
+        <button id="btn-menu" title="Menu"><span class="material-symbols-rounded">menu</span></button>
         <div id="menu-dropdown" class="dropdown-content hidden">
-            <button id="btn-sync" title="Sync Files">🔄 Sync Data</button>
+            <button id="btn-sync" title="Sync Files"><span class="material-symbols-rounded">sync</span> Sync Data</button>
         </div>
     </div>
-    <button id="btn-new" title="New Note">+</button>
+    <button id="btn-new" title="New Note"><span class="material-symbols-rounded">add</span></button>
     <div class="search-container">
         <div class="search-main">
-            <input type="text" id="search-bar" placeholder="Search...">
-            <button id="btn-toggle-advanced" title="Toggle Advanced Search">⌥</button>
+            <div class="search-input-wrapper">
+                <input type="text" id="search-bar" placeholder="Search...">
+                <button id="btn-clear-search" class="btn-clear-search hidden" title="Clear search"><span class="material-symbols-rounded">close</span></button>
+            </div>
+            <button id="btn-toggle-advanced" title="Toggle Advanced Search"><span class="material-symbols-rounded">tune</span></button>
         </div>
         <div id="advanced-search" class="advanced-search hidden">
             <select id="type-filter"><option value="">All Types</option></select>
             <input type="text" id="tag-filter" placeholder="Filter by #tag">
+            <button id="btn-save-search" class="btn-save-search" title="Save this search as a bookmark"><span class="material-symbols-rounded">bookmark</span> Save Search</button>
         </div>
     </div>
 </div>
@@ -47,12 +53,20 @@
 
         <div id="editor-container" class="hidden">
             <div class="editor-header">
-                <button id="btn-close" >Close</button>
-                <button id="btn-save" disabled>Save</button>
-                <button id="btn-delete" class="btn-delete">Delete</button>
+                <button id="btn-close" title="Close"><span class="material-symbols-rounded">close</span></button>
+                <button id="btn-edit" class="btn-primary" title="Edit Note"><span class="material-symbols-rounded">edit</span></button>
+                <button id="btn-view-toggle" class="hidden" title="View Note"><span class="material-symbols-rounded">visibility</span></button>
+                <button id="btn-save" class="hidden" disabled title="Save Changes"><span class="material-symbols-rounded">save</span></button>
+                <button id="btn-delete" class="btn-delete" title="Delete Note"><span class="material-symbols-rounded">delete</span></button>
             </div>
             <div id="metadata-form" class="metadata-form"></div>
-            <div id="body-editor"></div>
+            
+            <!-- Viewer Mode Container -->
+            <div id="body-viewer" class="body-viewer"></div>
+            
+            <!-- Editor Mode Container (Hidden by default) -->
+            <div id="body-editor" class="hidden"></div>
+
             <div id="editor-footer" class="editor-footer hidden">
                 <span id="last-modified-text"></span>
             </div>

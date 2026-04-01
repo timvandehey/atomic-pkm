@@ -160,8 +160,55 @@ bindEvents() {
         });
     },
 
-    showCreateModal() {
+    async showCreateModal() {
         const modal = document.getElementById('create-modal');
+        const templateSelect = document.getElementById('template-select');
+        const typeList = document.getElementById('type-list');
+        
+        // 1. Fetch templates
+        const tResponse = await fetch('/api/search?type=template');
+        const templates = await tResponse.json();
+        
+        templateSelect.innerHTML = '<option value="">None (Blank Note)</option>';
+        templates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.title;
+            // Look for 'creates' property, fallback to 'note'
+            const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata;
+            opt.dataset.targetType = meta.creates || 'note';
+            templateSelect.appendChild(opt);
+        });
+
+        // 2. Fetch all current types for autocomplete
+        const typeResponse = await fetch('/api/types');
+        const types = await typeResponse.json();
+        console.log("Fetched types for autocomplete:", types);
+        typeList.innerHTML = '';
+        const uniqueTypes = new Set(['note', 'template', 'query', ...types]);
+        uniqueTypes.forEach(type => {
+            const opt = document.createElement('option');
+            opt.value = type;
+            typeList.appendChild(opt);
+        });
+        console.log("Final type-list HTML:", typeList.innerHTML);
+
+        // 3. Handle template selection auto-fill
+        templateSelect.onchange = () => {
+            if (templateSelect.selectedIndex < 0) return;
+            const selected = templateSelect.options[templateSelect.selectedIndex];
+            if (selected && selected.value) {
+                document.getElementById('new-type').value = selected.dataset.targetType || 'note';
+            } else {
+                document.getElementById('new-type').value = '';
+            }
+        };
+
+        // 4. Auto-select text on focus
+        const newTypeInput = document.getElementById('new-type');
+        newTypeInput.onfocus = () => newTypeInput.select();
+        newTypeInput.onclick = () => newTypeInput.select();
+
         modal.classList.remove('hidden');
         document.getElementById('new-title').focus();
     },
@@ -169,19 +216,20 @@ bindEvents() {
     closeCreateModal() {
         document.getElementById('create-modal').classList.add('hidden');
         document.getElementById('new-title').value = '';
-        document.getElementById('new-type').value = 'note';
+        document.getElementById('new-type').value = '';
     },
 
     async submitNewObject() {
         const title = document.getElementById('new-title').value;
-        const type = document.getElementById('new-type').value;
+        let type = document.getElementById('new-type').value.trim() || 'note';
+        const templateId = document.getElementById('template-select').value;
 
         if (!title) return alert("Please enter a title.");
 
         const response = await fetch('/api/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, type })
+            body: JSON.stringify({ title, type, templateId })
         });
 
         if (response.ok) {

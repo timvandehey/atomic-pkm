@@ -12,7 +12,7 @@ syncDataFolder();
 // 2. Start the Background File Watcher
 // Cooldown Map to prevent duplicate events from fs.watch
 const cooldowns = new Map();
-const COOLDOWN_MS = 100;
+const COOLDOWN_MS = 250;
 
 console.log(`👀 Watching for changes in ${DATA_DIR}...`);
 watch(DATA_DIR, (eventType, filename) => {

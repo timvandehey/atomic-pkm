@@ -3,7 +3,7 @@
  * This is the function the Search Bar calls directly.
  */
 export function renderGallery(objects) {
-    console.log("Sidebar Rendered:", JSON.stringify(objects, null, 2));
+    // console.log("Sidebar Rendered:", JSON.stringify(objects, null, 2));
     const container = document.getElementById('note-list');
     container.innerHTML = '';
 

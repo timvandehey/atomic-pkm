@@ -648,6 +648,13 @@ input:focus, select:focus, textarea:focus {
     justify-content: center;
 }
 
+.template-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0.5rem 0;
+}
+
 .modal-content {
     background: var(--md-sys-color-surface);
     padding: 1.5rem; /* 24px */

@@ -76,10 +76,30 @@
 
 <div id="create-modal" class="modal-overlay hidden">
     <div class="modal-content">
+        <h2 style="margin-top: 0;">New Note</h2>
+        
+        <div class="template-selector" style="margin-top: 0;">
+            <label for="template-select" style="font-size: 0.85rem; color: var(--md-sys-color-outline);">Use Template:</label>
+            <select id="template-select">
+                <option value="">None (Blank Note)</option>
+            </select>
+        </div>
+
         <input type="text" id="new-title" placeholder="Title">
-        <input type="text" id="new-type" value="note" placeholder="Type"> 
-        <button id="btn-submit-create">Create</button>
-        <button id="btn-cancel-create">Cancel</button>
+        
+        <div class="type-selector">
+            <input type="text" id="new-type" list="type-list" value="" placeholder="Type [note]">
+            <datalist id="type-list">
+                <option value="note">
+                <option value="template">
+                <option value="query">
+            </datalist>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <button id="btn-submit-create" class="btn-primary" style="flex: 1;">Create</button>
+            <button id="btn-cancel-create" style="flex: 1;">Cancel</button>
+        </div>
     </div>
 </div>
 

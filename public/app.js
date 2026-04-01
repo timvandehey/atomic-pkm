@@ -80,14 +80,31 @@ bindEvents() {
             document.getElementById('menu-dropdown')?.classList.toggle('hidden');
         });
 
+        // Advanced Search Toggle
+        document.getElementById('btn-toggle-advanced')?.addEventListener('click', () => {
+            const panel = document.getElementById('advanced-search');
+            const isClosing = !panel.classList.contains('hidden');
+            
+            panel.classList.toggle('hidden');
+
+            if (isClosing) {
+                // Reset filters
+                document.getElementById('type-filter').value = "";
+                document.getElementById('tag-filter').value = "";
+                this.performSearch(); // Refresh search with cleared filters
+            }
+        });
+
         // Close menu when clicking outside
         window.addEventListener('click', () => {
             document.getElementById('menu-dropdown')?.classList.add('hidden');
         });
 
         // Search & Filter
-        document.getElementById('search-bar')?.addEventListener('input', debounce(() => this.performSearch(), 300));
+        const searchHandler = debounce(() => this.performSearch(), 300);
+        document.getElementById('search-bar')?.addEventListener('input', searchHandler);
         document.getElementById('type-filter')?.addEventListener('change', () => this.performSearch());
+        document.getElementById('tag-filter')?.addEventListener('input', searchHandler);
 
         // Create Note
         document.getElementById('btn-new')?.addEventListener('click', () => this.showCreateModal());
@@ -164,8 +181,9 @@ bindEvents() {
     async performSearch() {
         const query = document.getElementById('search-bar').value;
         const type = document.getElementById('type-filter').value;
+        const tag = document.getElementById('tag-filter').value;
         
-        const url = `/api/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`;
+        const url = `/api/search?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}&tag=${encodeURIComponent(tag)}`;
         const response = await fetch(url);
         const filteredObjects = await response.json();
         

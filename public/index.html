@@ -20,9 +20,18 @@
         </div>
     </div>
     <button id="btn-new" title="New Note">+</button>
-    <input type="text" id="search-bar" placeholder="Search...">
-    <select id="type-filter"><option value="">All</option></select>
+    <div class="search-container">
+        <div class="search-main">
+            <input type="text" id="search-bar" placeholder="Search...">
+            <button id="btn-toggle-advanced" title="Toggle Advanced Search">⌥</button>
+        </div>
+        <div id="advanced-search" class="advanced-search hidden">
+            <select id="type-filter"><option value="">All Types</option></select>
+            <input type="text" id="tag-filter" placeholder="Filter by #tag">
+        </div>
+    </div>
 </div>
+
         <div id="note-list"></div>
     </aside>
 

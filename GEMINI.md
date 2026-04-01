@@ -35,9 +35,3 @@ The project is strictly modular to ensure separation of concerns:
 - **Form Factory:** Do not hard-code forms for specific types. Use the "Guesser" logic in `editor.js` to render inputs based on data types (Date, Boolean, Number).
 - **The Sync Rule:** Any write operation to the file system MUST be followed immediately by a call to `syncDataFolder()` to keep the SQLite index accurate.
 - **Git Protocol:** Never commit `data/` or `atomic.sqlite`. Use the `push` alias (add/commit/push) for code-only updates.
-
-## 5. Implementation Roadmap (Next Steps)
-1. **New Object Workflow:** Implementation of a "Create" button that generates a boilerplate `.md` file with basic frontmatter.
-2. **Search & Filter:** Adding a search bar to the Gallery to query the SQLite index.
-3. **Smart Input Refinement:** Improving the "Guesser" to handle specific numeric increments (e.g., decimals for golf ratings) and star ratings.
-4. **Property Templates:** Standardizing YAML keys based on the `type` of object created.

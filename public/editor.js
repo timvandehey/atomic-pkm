@@ -129,6 +129,7 @@ export function initEditor() {
                 appendField(container, newKey, "");
                 container.classList.remove('hidden');
                 toggleIcon.style.transform = 'rotate(0deg)';
+                markDirty();
             }
         });
     }

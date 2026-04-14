@@ -655,10 +655,40 @@ input:focus, select:focus, textarea:focus {
     margin: 0.5rem 0;
 }
 
+.dynamic-variables {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: var(--md-sys-color-surface-container-low);
+    border-radius: 0.5rem;
+}
+.dynamic-variables:empty { display: none; }
+
+.variable-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.variable-field label {
+    font-size: 0.75rem;
+    color: var(--md-sys-color-on-surface-variant);
+    min-width: 5.5rem;
+    text-transform: capitalize;
+}
+.variable-field input {
+    flex: 1;
+    margin-bottom: 0 !important;
+    font-size: 0.85rem !important;
+    padding: 0.25rem 0.5rem !important;
+    border: 1px solid var(--md-sys-color-outline-variant) !important;
+}
+
 .modal-content {
     background: var(--md-sys-color-surface);
     padding: 1.5rem; /* 24px */
-    width: 20rem; /* 320px */
+    width: 22rem; /* 352px */
     border-radius: var(--md-sys-shape-corner-extra-large);
     box-shadow: var(--md-sys-elevation-2);
     display: flex;

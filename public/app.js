@@ -193,12 +193,59 @@ bindEvents() {
         });
         console.log("Final type-list HTML:", typeList.innerHTML);
 
-        // 3. Handle template selection auto-fill
+        // 3. Handle template selection auto-fill and dynamic variables
         templateSelect.onchange = () => {
+            const varContainer = document.getElementById('template-variables');
+            varContainer.innerHTML = '';
+            
             if (templateSelect.selectedIndex < 0) return;
             const selected = templateSelect.options[templateSelect.selectedIndex];
+            
             if (selected && selected.value) {
-                document.getElementById('new-type').value = selected.dataset.targetType || 'note';
+                const targetType = selected.dataset.targetType || 'note';
+                document.getElementById('new-type').value = targetType;
+
+                const template = templates.find(t => t.id === selected.value);
+                if (template) {
+                    const meta = typeof template.metadata === 'string' ? JSON.parse(template.metadata) : template.metadata;
+                    const content = template.content || '';
+                    
+                    const fullText = JSON.stringify(meta) + content;
+                    const matches = [...fullText.matchAll(/\{\{([\w-]+)\}\}/g)];
+                    let vars = Array.from(new Set(matches.map(m => m[1])));
+                    
+                    if (targetType === 'template' && !vars.includes('creates')) {
+                        vars.push('creates');
+                    }
+
+                    const builtIns = ['title', 'date'];
+                    vars = vars.filter(v => !builtIns.includes(v));
+
+                    if (vars.includes('creates') && vars.includes('targetType')) {
+                        vars = vars.filter(v => v !== 'targetType');
+                    }
+
+                    if (vars.length > 0) {
+                        const header = document.createElement('div');
+                        header.style = "font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-primary); margin-top: 0.5rem; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05rem;";
+                        header.textContent = "Template Parameters";
+                        varContainer.appendChild(header);
+
+                        const humanize = (s) => s === 'creates' ? 'target type' : s.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+
+                        vars.forEach(v => {
+                            const field = document.createElement('div');
+                            field.className = 'variable-field';
+                            const labelText = humanize(v);
+                            const placeholder = v === 'creates' ? 'e.g. note, meeting...' : v;
+                            field.innerHTML = `
+                                <label>${labelText}:</label>
+                                <input type="text" data-var="${v}" placeholder="${placeholder}">
+                            `;
+                            varContainer.appendChild(field);
+                        });
+                    }
+                }
             } else {
                 document.getElementById('new-type').value = '';
             }
@@ -224,12 +271,20 @@ bindEvents() {
         let type = document.getElementById('new-type').value.trim() || 'note';
         const templateId = document.getElementById('template-select').value;
 
+        // Collect dynamic variables
+        const variables = {};
+        document.querySelectorAll('#template-variables input').forEach(input => {
+            if (input.dataset.var) {
+                variables[input.dataset.var] = input.value;
+            }
+        });
+
         if (!title) return alert("Please enter a title.");
 
         const response = await fetch('/api/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, type, templateId })
+            body: JSON.stringify({ title, type, templateId, variables })
         });
 
         if (response.ok) {

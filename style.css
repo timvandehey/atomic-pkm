@@ -48,8 +48,6 @@ body {
   margin: 0;
   padding: 0;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
@@ -63,23 +61,41 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.75rem), 1fr));
 }
 
+/* Framework Root Wrapper */
+#app {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+}
+
 /* 2. The Split-Pane Wrapper */
 .app-container { 
-    display: flex; 
-    flex: 1; 
+    display: grid; 
+    /* grid-template-columns injected by JS */
+    grid-template-rows: minmax(0, 1fr);
     overflow: hidden; 
     position: relative; 
+    width: 100%;
+    height: 100%;
+}
+
+.app-container > * {
+    min-width: 0;
 }
 
 /* 3. Sidebar */
 .sidebar { 
-    width: 21.875rem; /* 350px */
-    min-width: 15.625rem; /* 250px */
-    max-width: 37.5rem; /* 600px */
     border-right: none;
-    display: flex; 
-    flex-direction: column; 
+    display: grid; 
+    grid-template-rows: auto minmax(0, 1fr);
     background: var(--md-sys-color-surface-variant); 
+    overflow: hidden;
+    height: 100%;
 }
 
 .resizer {
@@ -304,44 +320,63 @@ body {
     font-weight: bold;
 }
 
+.card-type-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.card-icon {
+    font-size: 1.1rem !important;
+    color: var(--md-sys-color-primary);
+}
+
 .card-location {
     font-size: 0.85rem;
     color: var(--md-sys-color-outline);
 }
 
 #note-list { 
-    flex: 1; 
     overflow-y: auto; 
     padding: 0.625rem; /* 10px */
+    min-height: 0;
 }
 
 /* 4. Main Editor Area */
 .editor-view { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
+    display: grid;
     background: var(--md-sys-color-surface);
     padding: 0;
     height: 100%;
     overflow: hidden;
     position: relative;
-}
-
-#editor-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    min-width: 0;
     width: 100%;
 }
 
+#editor-container {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
 .empty-state {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     color: var(--md-sys-color-outline);
     text-align: center;
     padding: 1.25rem; /* 20px */
+    position: relative;
+}
+
+.empty-state-menu {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 10;
 }
 
 .empty-state-icon {
@@ -352,9 +387,10 @@ body {
 }
 
 #body-viewer, #body-editor { 
-    flex: 1; 
     overflow-y: auto;
     background: transparent;
+    min-height: 0;
+    max-width: 100%;
 }
 
 .body-viewer {
@@ -362,6 +398,8 @@ body {
     font-size: 1.1rem;
     line-height: 1.6;
     color: var(--md-sys-color-on-surface);
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 /* Toast UI Viewer Overrides to match theme */
@@ -394,7 +432,6 @@ body {
 
 /* Metadata Form */
 #metadata-form {
-    flex-shrink: 0;
     max-height: 35vh; /* Using vh for a more reliable constraint than % */
     overflow-y: auto;
     background: var(--md-sys-color-surface);
@@ -633,72 +670,45 @@ input:focus, select:focus, textarea:focus {
     justify-content: flex-end;
 }
 
-/* Modals */
-.modal-overlay {
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
+/* Create Note View */
+.create-view {
+    display: grid;
+    place-items: center;
     height: 100%;
-    background: rgba(0,0,0,0.4);
-    backdrop-filter: blur(0.125rem); /* 2px */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.template-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    margin: 0.5rem 0;
-}
-
-.dynamic-variables {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
-    background: var(--md-sys-color-surface-container-low);
-    border-radius: 0.5rem;
-}
-.dynamic-variables:empty { display: none; }
-
-.variable-field {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.variable-field label {
-    font-size: 0.75rem;
-    color: var(--md-sys-color-on-surface-variant);
-    min-width: 5.5rem;
-    text-transform: capitalize;
-}
-.variable-field input {
-    flex: 1;
-    margin-bottom: 0 !important;
-    font-size: 0.85rem !important;
-    padding: 0.25rem 0.5rem !important;
-    border: 1px solid var(--md-sys-color-outline-variant) !important;
-}
-
-.modal-content {
+    width: 100%;
     background: var(--md-sys-color-surface);
-    padding: 1.5rem; /* 24px */
-    width: 22rem; /* 352px */
+}
+
+.create-form {
+    display: grid;
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 25rem; /* 400px */
+    padding: 2.5rem;
+    background: var(--md-sys-color-surface-variant);
     border-radius: var(--md-sys-shape-corner-extra-large);
     box-shadow: var(--md-sys-elevation-2);
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem; /* 12px */
+}
+
+.create-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
 }
 
 /* Utility */
 .hidden {
     display: none !important;
+}
+
+.mobile-only {
+    display: none !important;
+}
+
+@media (max-width: 48rem) {
+    .mobile-only {
+        display: inline-flex !important;
+    }
 }
 
 .sync-status {
@@ -733,25 +743,488 @@ input:focus, select:focus, textarea:focus {
     color: var(--md-sys-color-on-error);
 }
 
-/* 5. Mobile Responsiveness */
+/* 6. Dataview Styles */
+.dv-container {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: color-mix(in srgb, var(--md-sys-color-primary) 3%, #ffffff);
+    border-radius: var(--md-sys-shape-corner-medium);
+    border: 0.0625rem solid var(--md-sys-color-surface-variant);
+    min-height: 3rem;
+    position: relative;
+    transition: opacity 0.3s ease;
+}
+
+.dv-container.loading {
+    opacity: 0.6;
+}
+
+.dv-loading {
+    font-size: 0.85rem;
+    color: var(--md-sys-color-outline);
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dv-loading::before {
+    content: "";
+    width: 1rem;
+    height: 1rem;
+    border: 0.125rem solid var(--md-sys-color-primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: dv-spin 1s linear infinite;
+}
+
+@keyframes dv-spin {
+    to { transform: rotate(360deg); }
+}
+
+.dv-empty {
+    color: var(--md-sys-color-outline);
+    font-style: italic;
+}
+
+.dv-error {
+    color: var(--md-sys-color-error);
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    border-left: 0.25rem solid var(--md-sys-color-error);
+}
+
+.dv-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0;
+}
+
+.dv-table th {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 0.125rem solid var(--md-sys-color-surface-variant);
+    font-weight: 600;
+    color: var(--md-sys-color-secondary);
+    font-size: 0.9rem;
+}
+
+.dv-table td {
+    padding: 0.75rem;
+    border-bottom: 0.0625rem solid var(--md-sys-color-surface-variant);
+    font-size: 0.95rem;
+}
+
+.dv-table tr:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent);
+}
+
+.dv-link {
+    color: var(--md-sys-color-primary);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.dv-link:hover {
+    color: color-mix(in srgb, var(--md-sys-color-primary) 80%, black);
+    text-decoration-style: solid;
+}
+
+.dv-list {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.dv-list li {
+    margin-bottom: 0.25rem;
+}
+
+/* Milkdown Styles */
+.milkdown-scroll-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--md-sys-color-surface);
+}
+
+.milkdown .editor {
+    padding: 2rem !important;
+    max-width: 50rem !important;
+    margin: 0 auto !important;
+    outline: none !important;
+}
+
+.raw-meta-editor {
+    width: 100%;
+    min-height: 15rem;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 0.0625rem solid var(--md-sys-color-outline);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) 4%, var(--md-sys-color-surface));
+    color: var(--md-sys-color-on-surface);
+    resize: vertical;
+}
+
+.header-btn {
+    padding: 0.5rem !important;
+    width: auto !important;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    background: transparent !important;
+    color: var(--md-sys-color-on-surface) !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+    box-shadow: none !important;
+}
+
+.header-btn:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent) !important;
+    color: var(--md-sys-color-primary) !important;
+}
+
+.header-btn.active {
+    background: var(--md-sys-color-primary-container) !important;
+    color: var(--md-sys-color-on-primary-container) !important;
+}
+
+.btn-text {
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.mobile-menu-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--md-sys-color-primary);
+    padding: 0 0.5rem;
+    cursor: pointer;
+}
+
+/* 8. Mobile Responsiveness */
 @media (max-width: 48rem) { /* 768px */
-    .sidebar { 
-        width: 100% !important; 
-        max-width: 100%;
+    .app-container {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr !important;
     }
+
+    .sidebar {
+        display: none;
+    }
+
     .resizer {
         display: none;
     }
-    .editor-view { 
-        position: absolute; 
-        left: 100%; 
-        top: 0; 
-        width: 100%; 
-        height: 100%;
-        transition: transform 0.3s ease;
-        z-index: 100;
+
+    .editor-view {
+        display: none;
     }
-    .show-editor .editor-view { 
-        transform: translateX(-100%); 
+
+    .mobile-sidebar-open .sidebar {
+        display: grid;
     }
+
+    .mobile-sidebar-open .editor-view {
+        display: none;
+    }
+
+    /* When sidebar is closed, show the editor */
+    .app-container:not(.mobile-sidebar-open) .editor-view {
+        display: grid;
+    }
+
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    .tab-bar {
+        padding-left: 0.25rem;
+    }
+
+    .create-form {
+        max-width: 90vw;
+        padding: 1.5rem;
+    }
+
+    .sidebar-header {
+        padding: 0.5rem;
+    }
+}
+
+.tab-bar {
+    display: flex;
+    background: var(--md-sys-color-surface-variant);
+    overflow-x: auto;
+    border-bottom: 0.0625rem solid var(--md-sys-color-outline);
+    gap: 0.125rem;
+    padding: 0.5rem 0.5rem 0 0.5rem;
+}
+
+.tab-item {
+    padding: 0.5rem 1rem;
+    background: var(--md-sys-color-surface);
+    border-radius: 0.5rem 0.5rem 0 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--md-sys-color-outline);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border: 0.0625rem solid transparent;
+    border-bottom: none;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+    min-width: 5rem;
+    max-width: 12rem;
+}
+
+.tab-item:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface));
+    color: var(--md-sys-color-primary);
+}
+
+.tab-item.active {
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-outline);
+    box-shadow: 0 0.125rem 0 0 var(--md-sys-color-surface); /* Hide the border below */
+    z-index: 1;
+}
+
+.tab-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tab-close {
+    font-size: 1rem !important;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.tab-close:hover {
+    opacity: 1;
+    color: var(--md-sys-color-error);
+}
+
+.tab-content {
+    flex: 1;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+    min-width: 0;
+}
+
+.editor-instance-container {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* Fix for Toast UI and Vue layout */
+.toastui-editor-defaultUI {
+    height: 100% !important;
+    width: 100% !important;
+    max-width: 100%;
+}
+
+/* Allow toolbar to wrap or handle overflow popups better */
+.toastui-editor-toolbar {
+    height: auto !important;
+    flex-wrap: wrap !important;
+}
+
+/* Ensure the "more" button popup doesn't get clipped by parent overflow */
+.toastui-editor-defaultUI-toolbar,
+.toastui-editor-defaultUI {
+    overflow: visible !important;
+}
+
+@media (max-width: 48rem) {
+    /* Transform popups into bottom sheets for mobile */
+    .toastui-editor-popup {
+        position: fixed !important;
+        top: auto !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        transform: none !important;
+        border-radius: 1.5rem 1.5rem 0 0 !important;
+        border: none !important;
+        box-shadow: 0 -0.5rem 1.5rem rgba(0,0,0,0.15) !important;
+        padding: 1.5rem 1rem !important;
+        z-index: 3000 !important;
+    }
+    
+    /* Ensure the content inside the bottom sheet is readable and centered */
+    .toastui-editor-popup .toastui-editor-popup-body {
+        max-height: 50vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* Specifically for the "more" items menu to look like a grid */
+    .toastui-editor-more-button-items {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 1rem !important;
+        justify-items: center !important;
+        padding: 1rem 0 !important;
+    }
+
+    .toastui-editor-more-button-items button {
+        width: 3rem !important;
+        height: 3rem !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    .editor-view, #editor-container, .app-container, #app {
+        overflow: visible !important;
+    }
+}
+
+/* Constrain all Toast UI popups */
+.toastui-editor-popup {
+    z-index: 2000 !important;
+}
+
+/* Specifically for the "more" items menu */
+.toastui-editor-more-button-items {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+#editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.tab-content > * {
+    width: 100%;
+    min-width: 0;
+}
+
+.toastui-editor-defaultUI {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+.body-editor, .body-viewer {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* 9. Final Mobile Overrides (High Priority) */
+@media (max-width: 64rem) {
+    /* Broaden the media query to 1024px to ensure it hits more devices */
+    
+    .toastui-editor-popup {
+        position: fixed !important;
+        top: auto !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        transform: none !important;
+        border-radius: 1.25rem 1.25rem 0 0 !important;
+        z-index: 9999 !important;
+        background: white !important;
+        box-shadow: 0 -0.25rem 1.25rem rgba(0,0,0,0.2) !important;
+        display: block !important;
+    }
+
+    .toastui-editor-more-button-items {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 0.5rem !important;
+        padding: 1rem !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .toastui-editor-more-button-items button {
+        width: 100% !important;
+        aspect-ratio: 1 / 1 !important;
+        height: auto !important;
+    }
+
+    /* Force parents to let the fixed popup through */
+    #app, .app-container, .editor-view, #editor-container, .tab-content, .editor-instance-container {
+        overflow: visible !important;
+        contain: none !important;
+    }
+}
+
+/* Milkdown Implementation Styles */
+.custom-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0 0.5rem;
+    background: var(--md-sys-color-surface-variant);
+    border-radius: 0.75rem;
+    margin: 0 0.5rem;
+}
+
+.toolbar-btn {
+    padding: 0.25rem !important;
+    width: 2.25rem !important;
+    height: 2.25rem;
+    min-width: 0 !important;
+    background: transparent !important;
+    color: var(--md-sys-color-on-surface-variant) !important;
+    border-radius: 0.5rem !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toolbar-btn:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) !important;
+    color: var(--md-sys-color-primary) !important;
+}
+
+.toolbar-divider {
+    width: 0.0625rem;
+    height: 1.5rem;
+    background: var(--md-sys-color-outline);
+    margin: 0 0.25rem;
+    opacity: 0.3;
+}
+
+.milkdown-scroll-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--md-sys-color-surface);
+}
+
+.raw-meta-editor {
+    width: 100%;
+    min-height: 10rem;
+    font-family: monospace;
+    padding: 1rem;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: none;
+    outline: none;
+    border-radius: 0.5rem;
 }

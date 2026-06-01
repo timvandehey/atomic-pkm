@@ -10,12 +10,12 @@
 
 ## ✨ UI/UX Refinements
 - [x] **Mobile Experience**: Verify the "slide-in" editor transition works smoothly with the new Grid constraints.
-- [ ] **Icon Refresh**: Add more vibrant icons to match the new Electric Blue theme.
+- [x] **Icon Refresh**: Add more vibrant icons to match the new Electric Blue theme.
 - [x] **Read-only View Mode**: Implement a "View Mode" for notes (potentially using the Toast UI Viewer) with an **Edit** button to toggle into the full editor.
-- [ ] **Settings Migration**: Move sidebar width from `localStorage` to a server-side user profile (Post-login).
+- [x] **Settings Migration**: Move sidebar width from `localStorage` to a server-side user profile (Post-login).
 
 ## 🚀 Future Features
-- [ ] **Templates**: Create a system to define and manage note templates within the app and use them to quickly create new notes.
-- [ ] **Dataview Bridge**: Implement the `dataviewjs`-style bridge (Frontend interceptor, Server-side `node:vm` sandbox, and SQLite querying library).
+- [x] **Templates**: Create a system to define and manage note templates within the app and use them to quickly create new notes.
+- [x] **Dataview Bridge**: Implement the `dataviewjs`-style bridge (Frontend interceptor, Server-side `node:vm` sandbox, and SQLite querying library).
 - [ ] **User Login**: Implement a secure login system.
 - [ ] **Multi-user Support**: Associate notes and settings with specific users.

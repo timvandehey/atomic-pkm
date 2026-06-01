@@ -1,0 +1,21 @@
+{
+  "note": [],
+  "task": {
+    "dueDate": "date",
+    "isComplete": "checkbox",
+    "priority": "number"
+  },
+  "meeting": {
+    "date": "date",
+    "attendees": "text",
+    "location": "text"
+  },
+  "golf": {
+    "date": "date",
+    "score": "number",
+    "location": "text"
+  },
+  "template": {
+    "creates": "text"
+  }
+}

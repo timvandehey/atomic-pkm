@@ -1,12 +1,18 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { Crepe } from '@milkdown/crepe';
+import { editorViewOptionsCtx } from '@milkdown/core';
 import { store } from '../store.js';
 import yaml from 'js-yaml';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-javascript';
 
 // Import Crepe CSS
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/nord.css';
+
+// Map dataviewjs to javascript for highlighting
+Prism.languages.dataviewjs = Prism.languages.javascript;
 
 const props = defineProps(['note']);
 
@@ -37,25 +43,129 @@ const parseFullMarkdown = (raw) => {
     return null;
 };
 
+// --- Dataview Renderer Logic ---
+async function fetchDataview(script, container) {
+    try {
+        console.log("[Dataview] Fetching for script:", script.substring(0, 30) + "...");
+        container.innerHTML = '<div class="dv-loading">Executing query...</div>';
+        const res = await fetch('/api/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ script })
+        });
+        const data = await res.json();
+        if (data.success) {
+            container.innerHTML = data.html || '<div class="dv-empty">No results</div>';
+            // Handle links
+            container.querySelectorAll('.dv-link').forEach(link => {
+                link.onclick = () => {
+                    const id = link.getAttribute('data-id');
+                    const target = store.objects.find(o => o.id === id);
+                    if (target) store.openTab(target);
+                };
+            });
+        } else {
+            container.innerHTML = `<div class="dv-error">Error: ${data.error}</div>`;
+        }
+    } catch (err) {
+        container.innerHTML = `<div class="dv-error">Fetch Error: ${err.message}</div>`;
+    }
+}
+
+const dataviewPlugin = (ctx) => {
+    return () => {
+        ctx.update(editorViewOptionsCtx, (prev) => ({
+            ...prev,
+            nodeViews: {
+                ...prev.nodeViews,
+                code_block: (node, view, getPos) => {
+                    const lang = node.attrs.language;
+                    if (lang !== 'dataviewjs') return null;
+
+                    console.log("[Dataview] Creating new node view instance");
+
+                    const dom = document.createElement('div');
+                    dom.classList.add('dataview-block');
+
+                    const code = document.createElement('pre');
+                    code.classList.add('dv-code-part');
+                    dom.appendChild(code);
+
+                    const resultContainer = document.createElement('div');
+                    resultContainer.classList.add('dv-container');
+                    resultContainer.setAttribute('contenteditable', 'false'); // Only result is non-editable
+                    dom.appendChild(resultContainer);
+                    
+                    // Initial fetch
+                    fetchDataview(node.textContent, resultContainer);
+
+                    let debounceTimer;
+                    let lastContent = node.textContent;
+
+                    return {
+                        dom,
+                        contentDOM: code,
+                        update: (newNode) => {
+                            if (newNode.type.name !== node.type.name) return false;
+                            
+                            if (newNode.textContent !== lastContent) {
+                                console.log("[Dataview] Content changed, debouncing fetch...");
+                                lastContent = newNode.textContent;
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(() => {
+                                    fetchDataview(newNode.textContent, resultContainer);
+                                }, 1000);
+                            }
+                            return true;
+                        },
+                        selectNode: () => {
+                            dom.classList.add('prose-selection');
+                        },
+                        deselectNode: () => {
+                            dom.classList.remove('prose-selection');
+                        },
+                        ignoreMutation: (mutation) => {
+                            // If the mutation is selection, we definitely don't want to ignore it
+                            if (mutation.type === 'selection') return false;
+                            // If it's a mutation in our code container, let ProseMirror handle it
+                            if (code.contains(mutation.target)) return false;
+                            // Ignore everything else (like the result rendering)
+                            return true;
+                        },
+                        stopEvent: (event) => {
+                            // Only stop events from the result container
+                            if (resultContainer.contains(event.target)) return true;
+                            // Let editor handle selection/typing in the code part
+                            return false;
+                        }
+                    };
+                }
+            }
+        }));
+    };
+};
+
 onMounted(async () => {
     if (editorRef.value) {
         crepeInstance = new Crepe({
             root: editorRef.value,
             defaultValue: props.note.content || "",
-            features: {
-                // Enable/disable features as needed
-            }
         });
 
-        // Set to readonly if not in edit mode initially
-        crepeInstance.setReadonly(!props.note.isEditMode);
+        // Inject dataview plugin
+        crepeInstance.editor.use(dataviewPlugin);
+
+        // Register listener for changes
+        crepeInstance.on((listener) => {
+            listener.markdownUpdated((ctx, markdown) => {
+                props.note.content = markdown;
+            });
+        });
 
         await crepeInstance.create();
 
-        // Sync changes back to props
-        crepeInstance.onShare((markdown) => {
-            props.note.content = markdown;
-        });
+        // Set initial readonly state after creation
+        crepeInstance.setReadonly(!props.note.isEditMode);
     }
 });
 
@@ -105,10 +215,8 @@ const toggleRawMode = () => {
             props.note.metadata = parsed.metadata;
             props.note.content = parsed.content;
             isRawMode.value = false;
-            // Update crepe content if we switch back
             if (crepeInstance) {
-                // Crepe doesn't have a simple setMarkdown, we usually have to destroy and recreate 
-                // or use internal milkdown editor. For now, let's keep it simple.
+                crepeInstance.setMarkdown(props.note.content);
             }
         } else {
             alert("Invalid Markdown format. Cannot switch back.");
@@ -170,7 +278,7 @@ const addMetaProp = () => {
     </div>
 
     <!-- Raw Editor Mode -->
-    <div v-if="isRawMode" class="raw-editor-container">
+    <div v-show="isRawMode" class="raw-editor-container">
         <textarea 
             class="full-raw-editor"
             v-model="rawFullContent"
@@ -178,7 +286,7 @@ const addMetaProp = () => {
         ></textarea>
     </div>
 
-    <template v-else>
+    <div v-show="!isRawMode" class="visual-editor-container">
         <div class="metadata-form" :class="{ 'view-only': !props.note.isEditMode }">
             <div class="meta-header" @click="props.note.metaVisible = !props.note.metaVisible">
                 <h2 class="meta-title">
@@ -222,7 +330,7 @@ const addMetaProp = () => {
         <div class="crepe-container">
             <div ref="editorRef" class="crepe-editor"></div>
         </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -234,6 +342,13 @@ const addMetaProp = () => {
     width: 100%;
     overflow: hidden;
     min-width: 0;
+}
+
+.visual-editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .crepe-container {
@@ -267,6 +382,14 @@ const addMetaProp = () => {
     height: 100%;
 }
 
+/* Ensure code blocks don't overflow horizontally */
+:deep(.milkdown-code-block) {
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 /* Ensure Crepe fills width */
 :deep(.milkdown) {
     max-width: 55rem !important;
@@ -276,5 +399,43 @@ const addMetaProp = () => {
 
 .readonly-mode :deep(.milkdown .editor) {
     cursor: default;
+}
+
+/* Dataview Block Styles */
+:deep(.dataview-block) {
+    margin: 1rem 0;
+    border: 0.0625rem solid var(--md-sys-color-outline-variant);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: white;
+}
+
+/* Hide the code source in readonly mode */
+.readonly-mode :deep(.dataview-block .dv-code-part) {
+    display: none !important;
+}
+
+/* Style the code part in edit mode */
+:deep(.dataview-block .dv-code-part) {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 5%, #f8f9fa);
+    padding: 1rem;
+    border-bottom: 0.0625rem solid var(--md-sys-color-outline-variant);
+    font-family: 'Fira Code', monospace;
+    font-size: 0.85rem;
+    margin: 0;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    cursor: text !important;
+    min-height: 1.5em;
+    outline: none;
+    user-select: text !important;
+}
+
+:deep(.dataview-block .dv-code-part:focus) {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, #ffffff);
+}
+
+:deep(.dv-container) {
+    padding: 1rem;
 }
 </style>

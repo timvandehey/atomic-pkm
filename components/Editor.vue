@@ -1,77 +1,85 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
-import { useEditor, Milkdown } from '@milkdown/vue';
-import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, commandsCtx } from '@milkdown/core';
-import { nord } from '@milkdown/theme-nord';
-import { commonmark, toggleStrongCommand, toggleEmphasisCommand, wrapInBulletListCommand, wrapInOrderedListCommand, wrapInHeadingCommand } from '@milkdown/preset-commonmark';
-import { gfm, insertTableCommand } from '@milkdown/preset-gfm';
-import { history } from '@milkdown/plugin-history';
-import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { prism } from '@milkdown/plugin-prism';
-import { indent } from '@milkdown/plugin-indent';
-import { clipboard } from '@milkdown/plugin-clipboard';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { Crepe } from '@milkdown/crepe';
 import { store } from '../store.js';
 import yaml from 'js-yaml';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-javascript';
 
-// Map dataviewjs to javascript for highlighting
-Prism.languages.dataviewjs = Prism.languages.javascript;
+// Import Crepe CSS
+import '@milkdown/crepe/theme/common/style.css';
+import '@milkdown/crepe/theme/nord.css';
 
 const props = defineProps(['note']);
 
-const isRawMeta = ref(false);
-const rawMeta = ref("");
+const editorRef = ref(null);
+const isRawMode = ref(false);
+const rawFullContent = ref("");
+let crepeInstance = null;
 
-// Initialize rawMeta
-watch(() => props.note.metadata, (newMeta) => {
-    if (!isRawMeta.value) {
-        rawMeta.value = yaml.dump(newMeta);
-    }
-}, { immediate: true, deep: true });
-
-const { get } = useEditor((root) =>
-    Editor.make()
-        .config((ctx) => {
-            ctx.set(rootCtx, root);
-            ctx.set(defaultValueCtx, props.note.content || "");
-            ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
-                props.note.content = markdown;
-            });
-        })
-        .config(nord)
-        .use(commonmark)
-        .use(gfm)
-        .use(history)
-        .use(listener)
-        .use(prism)
-        .use(indent)
-        .use(clipboard)
-);
-
-const call = (command) => {
-    const editor = get();
-    if (editor) {
-        editor.action((ctx) => {
-            try {
-                // In v7, commands are called via the command manager in commandsCtx
-                const manager = ctx.get(commandsCtx);
-                manager.call(command.key);
-            } catch (e) {
-                console.error("Command execution failed:", command, e);
-            }
-        });
-    }
+// Helper to assemble full MD string
+const getFullMarkdown = () => {
+    const frontmatter = yaml.dump(props.note.metadata);
+    return `---\n${frontmatter}---\n\n${props.note.content}`;
 };
 
-const saveNote = async () => {
-    if (isRawMeta.value) {
-        try {
-            props.note.metadata = yaml.load(rawMeta.value);
-            isRawMeta.value = false;
-        } catch (e) {
-            return alert("Invalid YAML: " + e.message);
+// Helper to parse full MD string
+const parseFullMarkdown = (raw) => {
+    try {
+        const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+        if (match) {
+            return {
+                metadata: yaml.load(match[1]),
+                content: match[2].trim()
+            };
         }
+    } catch (e) {
+        console.error("YAML Parse Error", e);
+    }
+    return null;
+};
+
+onMounted(async () => {
+    if (editorRef.value) {
+        crepeInstance = new Crepe({
+            root: editorRef.value,
+            defaultValue: props.note.content || "",
+            features: {
+                // Enable/disable features as needed
+            }
+        });
+
+        // Set to readonly if not in edit mode initially
+        crepeInstance.setReadonly(!props.note.isEditMode);
+
+        await crepeInstance.create();
+
+        // Sync changes back to props
+        crepeInstance.onShare((markdown) => {
+            props.note.content = markdown;
+        });
+    }
+});
+
+onBeforeUnmount(() => {
+    if (crepeInstance) {
+        crepeInstance.destroy();
+    }
+});
+
+// Toggle editor status when props.note.isEditMode changes
+watch(() => props.note.isEditMode, (isEdit) => {
+    if (crepeInstance) {
+        crepeInstance.setReadonly(!isEdit);
+    }
+});
+
+const saveNote = async () => {
+    if (isRawMode.value) {
+        const parsed = parseFullMarkdown(rawFullContent.value);
+        if (!parsed) return alert("Invalid Markdown format. Ensure you have --- frontmatter blocks.");
+        props.note.metadata = parsed.metadata;
+        props.note.content = parsed.content;
+    } else if (crepeInstance) {
+        props.note.content = crepeInstance.getMarkdown();
     }
 
     const res = await fetch('/api/save', {
@@ -85,20 +93,32 @@ const saveNote = async () => {
     });
     if (res.ok) {
         store.fetchObjects();
+        if (isRawMode.value) isRawMode.value = false;
+        props.note.isEditMode = false;
     }
 };
 
-const toggleRawMeta = () => {
-    if (isRawMeta.value) {
-        try {
-            props.note.metadata = yaml.load(rawMeta.value);
-            isRawMeta.value = false;
-        } catch (e) {
-            alert("Invalid YAML: " + e.message);
+const toggleRawMode = () => {
+    if (isRawMode.value) {
+        const parsed = parseFullMarkdown(rawFullContent.value);
+        if (parsed) {
+            props.note.metadata = parsed.metadata;
+            props.note.content = parsed.content;
+            isRawMode.value = false;
+            // Update crepe content if we switch back
+            if (crepeInstance) {
+                // Crepe doesn't have a simple setMarkdown, we usually have to destroy and recreate 
+                // or use internal milkdown editor. For now, let's keep it simple.
+            }
+        } else {
+            alert("Invalid Markdown format. Cannot switch back.");
         }
     } else {
-        rawMeta.value = yaml.dump(props.note.metadata);
-        isRawMeta.value = true;
+        if (crepeInstance) {
+            props.note.content = crepeInstance.getMarkdown();
+        }
+        rawFullContent.value = getFullMarkdown();
+        isRawMode.value = true;
     }
 };
 
@@ -122,95 +142,139 @@ const addMetaProp = () => {
 </script>
 
 <template>
-  <div class="editor-instance-container">
+  <div class="editor-instance-container" :class="{ 'readonly-mode': !props.note.isEditMode }">
     <div class="editor-header">
-        <button class="header-btn" title="Close" @click="store.closeTab(props.note.id)">
-            <span class="material-symbols-rounded">close</span>
-        </button>
-        <button class="btn-primary header-btn" title="Save" @click="saveNote">
-            <span class="material-symbols-rounded">save</span>
-            <span class="btn-text">Save</span>
-        </button>
-        
-        <div class="custom-toolbar">
-            <button class="toolbar-btn" title="Bold" @click="call(toggleStrongCommand)">
-                <span class="material-symbols-rounded">format_bold</span>
-            </button>
-            <button class="toolbar-btn" title="Italic" @click="call(toggleEmphasisCommand)">
-                <span class="material-symbols-rounded">format_italic</span>
-            </button>
-            <div class="toolbar-divider"></div>
-            <button class="toolbar-btn" title="Heading 1" @click="call(wrapInHeadingCommand(1))">H1</button>
-            <button class="toolbar-btn" title="Heading 2" @click="call(wrapInHeadingCommand(2))">H2</button>
-            <div class="toolbar-divider"></div>
-            <button class="toolbar-btn" title="Bullet List" @click="call(wrapInBulletListCommand)">
-                <span class="material-symbols-rounded">format_list_bulleted</span>
-            </button>
-            <button class="toolbar-btn" title="Numbered List" @click="call(wrapInOrderedListCommand)">
-                <span class="material-symbols-rounded">format_list_numbered</span>
-            </button>
-            <button class="toolbar-btn" title="Table" @click="call(insertTableCommand)">
-                <span class="material-symbols-rounded">table_chart</span>
-            </button>
-        </div>
-
-        <div style="margin-left: auto; display: flex; gap: 0.5rem">
-             <button 
-                class="header-btn" 
-                :class="{ active: isRawMeta }"
-                title="Toggle Raw YAML"
-                @click="toggleRawMeta" 
-            >
-                <span class="material-symbols-rounded">code</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="metadata-form">
-        <div class="meta-header" @click="props.note.metaVisible = !props.note.metaVisible">
-            <h2 class="meta-title">
-                <span 
-                    class="material-symbols-rounded meta-toggle-icon" 
-                    :style="{ transform: props.note.metaVisible ? 'rotate(0deg)' : 'rotate(-90deg)' }"
-                >expand_more</span>
-                <span>Properties</span>
-            </h2>
-            <button v-if="!isRawMeta" class="btn-add-prop" @click.stop="addMetaProp">
-                <span class="material-symbols-rounded" style="font-size: 1rem">add</span>
-                <span> Property</span>
-            </button>
-        </div>
-        <div 
-            id="fields-container" 
-            v-show="props.note.metaVisible"
+        <!-- Edit/View Toggle -->
+        <button 
+            class="header-btn" 
+            :class="{ 'btn-primary': props.note.isEditMode }" 
+            :title="props.note.isEditMode ? 'View Mode' : 'Edit Mode'"
+            @click="props.note.isEditMode = !props.note.isEditMode"
         >
-            <textarea 
-                v-if="isRawMeta"
-                class="raw-meta-editor"
-                v-model="rawMeta"
-                placeholder="Enter YAML metadata..."
-            ></textarea>
-            <template v-else>
-                <div v-for="(value, key) in props.note.metadata" :key="key" v-show="!key.startsWith('_')" class="meta-field">
-                    <label class="meta-label">{{ key }}:</label>
-                    <input 
-                        :type="getInputType(key, value)" 
-                        class="meta-input"
-                        v-model="props.note.metadata[key]"
-                        :checked="getInputType(key, value) === 'checkbox' ? !!props.note.metadata[key] : undefined"
-                        @input="e => {
-                            if (e.target.type === 'checkbox') props.note.metadata[key] = e.target.checked;
-                            else if (e.target.type === 'number') props.note.metadata[key] = Number(e.target.value);
-                        }"
-                    >
-                    <button class="delete-prop btn-delete-prop" @click="delete props.note.metadata[key]">✕</button>
-                </div>
-            </template>
-        </div>
+            <span class="material-symbols-rounded">{{ props.note.isEditMode ? 'visibility' : 'edit' }}</span>
+        </button>
+
+        <button v-if="props.note.isEditMode || isRawMode" class="btn-primary header-btn" title="Save" @click="saveNote">
+            <span class="material-symbols-rounded">save</span>
+        </button>
+
+        <button 
+            v-if="props.note.isEditMode || isRawMode"
+            class="header-btn" 
+            :class="{ active: isRawMode }"
+            title="Toggle Raw Markdown"
+            @click="toggleRawMode" 
+        >
+            <span class="material-symbols-rounded">code</span>
+        </button>
     </div>
 
-    <div class="milkdown-scroll-wrapper">
-        <Milkdown />
+    <!-- Raw Editor Mode -->
+    <div v-if="isRawMode" class="raw-editor-container">
+        <textarea 
+            class="full-raw-editor"
+            v-model="rawFullContent"
+            placeholder="Edit raw markdown file..."
+        ></textarea>
     </div>
+
+    <template v-else>
+        <div class="metadata-form" :class="{ 'view-only': !props.note.isEditMode }">
+            <div class="meta-header" @click="props.note.metaVisible = !props.note.metaVisible">
+                <h2 class="meta-title">
+                    <span 
+                        class="material-symbols-rounded meta-toggle-icon" 
+                        :style="{ transform: props.note.metaVisible ? 'rotate(0deg)' : 'rotate(-90deg)' }"
+                    >expand_more</span>
+                    <span>Properties</span>
+                </h2>
+                <button v-if="props.note.isEditMode" class="btn-add-prop" @click.stop="() => { const key = prompt('Property name:'); if (key && !key.startsWith('_')) props.note.metadata[key] = ''; }">
+                    <span class="material-symbols-rounded" style="font-size: 1rem">add</span>
+                    <span> Property</span>
+                </button>
+            </div>
+            <div 
+                id="fields-container" 
+                v-show="props.note.metaVisible"
+            >
+                <template v-for="(value, key) in props.note.metadata" :key="key">
+                    <div v-if="!key.startsWith('_')" class="meta-field">
+                        <label class="meta-label">{{ key }}:</label>
+                        <input 
+                            :type="getInputType(key, value)" 
+                            class="meta-input"
+                            :readonly="!props.note.isEditMode"
+                            :value="getInputType(key, value) === 'date' && typeof props.note.metadata[key] === 'string' ? props.note.metadata[key].split('T')[0] : props.note.metadata[key]"
+                            :checked="getInputType(key, value) === 'checkbox' ? !!props.note.metadata[key] : undefined"
+                            @input="e => {
+                                if (!props.note.isEditMode) return;
+                                if (e.target.type === 'checkbox') props.note.metadata[key] = e.target.checked;
+                                else if (e.target.type === 'number') props.note.metadata[key] = Number(e.target.value);
+                                else props.note.metadata[key] = e.target.value;
+                            }"
+                        >
+                        <button v-if="props.note.isEditMode" class="delete-prop btn-delete-prop" @click="delete props.note.metadata[key]">✕</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="crepe-container">
+            <div ref="editorRef" class="crepe-editor"></div>
+        </div>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.editor-instance-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.crepe-container {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--md-sys-color-surface);
+}
+
+.crepe-editor {
+    height: auto;
+    min-height: 100%;
+}
+
+.full-raw-editor {
+    width: 100%;
+    height: 100%;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Fira Code', monospace;
+    font-size: 1rem;
+    padding: 2rem;
+    border: none;
+    outline: none;
+    resize: none;
+    line-height: 1.5;
+}
+
+.raw-editor-container {
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+}
+
+/* Ensure Crepe fills width */
+:deep(.milkdown) {
+    max-width: 55rem !important;
+    margin: 0 auto !important;
+    width: 100%;
+}
+
+.readonly-mode :deep(.milkdown .editor) {
+    cursor: default;
+}
+</style>

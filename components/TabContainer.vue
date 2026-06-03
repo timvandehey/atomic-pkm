@@ -1,5 +1,4 @@
 <script setup>
-import { MilkdownProvider } from '@milkdown/vue';
 import { store } from '../store.js';
 import Editor from './Editor.vue';
 </script>
@@ -34,12 +33,12 @@ import Editor from './Editor.vue';
       </div>
       
       <div class="tab-content">
-        <MilkdownProvider v-for="tab in store.openTabs" :key="tab.id">
-            <Editor 
-              v-show="store.activeTabId === tab.id"
-              :note="tab"
-            />
-        </MilkdownProvider>
+        <Editor 
+          v-for="tab in store.openTabs" 
+          :key="tab.id" 
+          v-show="store.activeTabId === tab.id"
+          :note="tab"
+        />
       </div>
     </div>
   </main>

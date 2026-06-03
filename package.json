@@ -8,7 +8,7 @@
     "dev": "bun run clean && concurrently \"bun run server.js\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "bun server.js"
+    "start": "cross-env NODE_ENV=production bun server.js"
   },
   "dependencies": {
     "@milkdown/core": "^7.21.2",

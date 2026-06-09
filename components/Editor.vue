@@ -252,6 +252,11 @@ const addMetaProp = () => {
 <template>
   <div class="editor-instance-container" :class="{ 'readonly-mode': !props.note.isEditMode }">
     <div class="editor-header">
+        <!-- Mobile Menu Toggle -->
+        <button class="header-btn mobile-only" title="Open Sidebar" @click="store.mobileSidebarOpen = true">
+            <span class="material-symbols-rounded">menu</span>
+        </button>
+
         <!-- Edit/View Toggle -->
         <button 
             class="header-btn" 

@@ -38,6 +38,7 @@ watch(DATA_DIR, (eventType, filename) => {
 // 3. Start the Server
 Bun.serve({
     port: PORT,
+    hostname: "0.0.0.0",
     fetch(req) {
         return handleRequest(req);
     },

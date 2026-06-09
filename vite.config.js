@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
+    host: '0.0.0.0',
+    allowedHosts: ['penguin', 'penguin.local', 'localhost'],
     proxy: {
       '/api': 'http://localhost:3000'
     }

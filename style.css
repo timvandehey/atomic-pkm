@@ -925,50 +925,54 @@ input:focus, select:focus, textarea:focus {
 /* 8. Mobile Responsiveness */
 @media (max-width: 48rem) { /* 768px */
     .app-container {
-        grid-template-columns: 1fr !important;
-        grid-template-rows: 1fr !important;
+        grid-template-columns: 100% !important;
+        grid-template-rows: 100% !important;
     }
 
     .sidebar {
-        display: none;
+        display: none !important;
+        width: 100% !important;
     }
 
     .resizer {
-        display: none;
+        display: none !important;
     }
 
     .editor-view {
-        display: none;
+        display: none !important;
+        width: 100% !important;
+        height: 100% !important;
     }
 
     .mobile-sidebar-open .sidebar {
-        display: grid;
+        display: grid !important;
     }
 
-    .mobile-sidebar-open .editor-view {
-        display: none;
-    }
-
-    /* When sidebar is closed, show the editor */
     .app-container:not(.mobile-sidebar-open) .editor-view {
-        display: grid;
+        display: grid !important;
     }
 
     .mobile-menu-btn {
-        display: flex;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        min-width: 3rem;
+        height: 3rem;
+        padding: 0;
     }
 
     .tab-bar {
-        padding-left: 0.25rem;
+        padding-left: 0rem;
+        min-height: 3.5rem;
+        align-items: center;
+        z-index: 10;
     }
 
-    .create-form {
-        max-width: 90vw;
-        padding: 1.5rem;
-    }
-
-    .sidebar-header {
-        padding: 0.5rem;
+    .tab-item {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+        min-width: 4rem;
+        height: 2.5rem;
     }
 }
 

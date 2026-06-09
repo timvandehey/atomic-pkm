@@ -1,0 +1,108 @@
+export const GalleryComponent = (props, { getState }) => {
+  const typeIcons = {
+    note: 'description',
+    task: 'check_circle',
+    template: 'dashboard_customize',
+    query: 'search',
+    golf: 'sports_golf',
+    meeting: 'groups'
+  };
+
+  const getTypeIcon = (type) => typeIcons[type] || 'draft';
+
+  const getMetadata = (obj) => {
+    if (typeof obj.metadata === 'string') {
+      try {
+        return JSON.parse(obj.metadata);
+      } catch {
+        return {};
+      }
+    }
+    return obj.metadata || {};
+  };
+
+  return {
+    div: {
+      id: 'note-list',
+      children: () => {
+        const objects = getState('objects', []);
+        if (objects.length === 0) {
+          return [
+            {
+              div: {
+                style: 'padding: 2rem; text-align: center; color: var(--md-sys-color-outline); font-size: 0.9rem;',
+                text: 'No notes found.'
+              }
+            }
+          ];
+        }
+
+        return objects.map(obj => {
+          const meta = getMetadata(obj);
+          const hasScore = obj.type === 'golf';
+          
+          return {
+            article: {
+              id: 'card-' + obj.id,
+              class: 'card',
+              onclick: () => {
+                if (window.appInstance) {
+                  window.appInstance.actions.openTab(obj);
+                }
+              },
+              children: [
+                {
+                  div: {
+                    class: 'card-type-row',
+                    children: [
+                      {
+                        span: {
+                          class: 'material-symbols-rounded card-icon',
+                          text: getTypeIcon(obj.type)
+                        }
+                      },
+                      {
+                        span: {
+                          class: 'card-type',
+                          text: obj.type
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  h3: {
+                    text: obj.title
+                  }
+                },
+                hasScore ? {
+                  div: {
+                    class: 'card-score',
+                    children: [
+                      {
+                        strong: {
+                          text: `Score: ${meta.score !== undefined ? meta.score : 'N/A'}`
+                        }
+                      }
+                    ]
+                  }
+                } : {
+                  div: {
+                    class: 'card-content',
+                    text: (obj.content || '').substring(0, 100) + ((obj.content || '').length > 100 ? '...' : '')
+                  }
+                },
+                {
+                  div: {
+                    class: 'card-location',
+                    text: `📍 ${meta.location || 'Unknown'}`
+                  }
+                }
+              ]
+            }
+          };
+        });
+      }
+    }
+  };
+};

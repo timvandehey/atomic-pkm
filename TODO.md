@@ -19,3 +19,12 @@
 - [x] **Dataview Bridge**: Implement the `dataviewjs`-style bridge (Frontend interceptor, Server-side `node:vm` sandbox, and SQLite querying library).
 - [ ] **User Login**: Implement a secure login system.
 - [ ] **Multi-user Support**: Associate notes and settings with specific users.
+
+## 📝 Wiki Rendering Refinements
+- [ ] **Context-aware Dataview Links**: Update `formatValue(val)` inside `lib/dv.js` to render standard `<a href="/wiki/${val.id}">` tags for wiki/server contexts instead of raw client-specific `<span class="dv-link" data-id="...">` tags.
+
+## 🧠 Semantic Search & Vector Embeddings
+- [ ] **Database Vector Schema**: Create an `objects_embeddings` table to house JSON float arrays matching note IDs.
+- [ ] **Background Embedding Queue**: Implement an asynchronous background queue in `lib/indexer.js` to request vector generation from local Ollama (`POST /api/embeddings`) on file save without blocking the snappy UI.
+- [ ] **Semantic Search API**: Add a server-side similarity search endpoint implementing JavaScript-based cosine similarity.
+- [ ] **Related Notes Panel**: Build an interactive side-drawer or footer panel in the note editor displaying the top 5 semantically related notes.

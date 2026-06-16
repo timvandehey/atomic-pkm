@@ -36,6 +36,10 @@
   --md-sys-color-surface-variant: #e1e2ec;
   --md-sys-color-on-surface-variant: #44464f;
   --md-sys-color-outline: #757780;
+  
+  --md-sys-color-surface-container-low: #f4f3f9;
+  --md-sys-color-surface-container-high: #e7e7ee;
+  --md-sys-color-surface-container-highest: #e1e1e9;
 
   /* Typography & Shapes */
   --md-sys-typescale-body-large-font: "Roboto", system-ui, -apple-system, sans-serif;
@@ -48,6 +52,8 @@
   /* Elevation */
   --md-sys-elevation-1: 0rem 0.0625rem 0.1875rem 0.0625rem rgba(0, 0, 0, 0.15), 0rem 0.0625rem 0.125rem 0rem rgba(0, 0, 0, 0.3);
   --md-sys-elevation-2: 0rem 0.125rem 0.375rem 0.125rem rgba(0, 0, 0, 0.15), 0rem 0.0625rem 0.125rem 0rem rgba(0, 0, 0, 0.3);
+  --md-sys-elevation-3: 0rem 0.25rem 0.5rem 0.1875rem rgba(0, 0, 0, 0.15), 0rem 0.0625rem 0.1875rem 0rem rgba(0, 0, 0, 0.3);
+  --md-sys-elevation-4: 0rem 0.375rem 0.75rem 0.25rem rgba(0, 0, 0, 0.15), 0rem 0.125rem 0.25rem 0rem rgba(0, 0, 0, 0.3);
 
   /* Legacy variable mappings */
   --bg-color: var(--md-sys-color-background);
@@ -259,15 +265,17 @@ body {
     border-radius: var(--md-sys-shape-corner-medium);
     box-shadow: var(--md-sys-elevation-2);
     z-index: 1000;
-    min-width: 12rem;
+    min-width: 16rem;
     padding: 0.5rem;
 }
 
 .dropdown-content button {
     width: 100%;
+    display: flex;
+    align-items: center;
     justify-content: flex-start;
-    font-size: 1rem !important;
-    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    padding: 0.6rem 0.8rem !important;
     border: none !important;
     background: transparent !important;
     color: var(--md-sys-color-on-surface) !important;
@@ -279,6 +287,26 @@ body {
 .dropdown-content button:hover {
     background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent) !important;
     color: var(--md-sys-color-primary) !important;
+}
+
+.menu-item-text {
+    flex: 1;
+    text-align: left;
+    margin-left: 0.75rem;
+}
+
+.menu-item-hotkey {
+    font-size: 0.75rem;
+    color: var(--md-sys-color-outline);
+    margin-left: 1rem;
+    font-weight: normal;
+    opacity: 0.8;
+}
+
+.menu-divider {
+    border: none;
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    margin: 0.4rem 0;
 }
 
 .sidebar-header input, .sidebar-header select {
@@ -448,31 +476,40 @@ body {
 }
 
 /* Metadata Form */
-#metadata-form {
+.metadata-form {
     max-height: 35vh; /* Using vh for a more reliable constraint than % */
     overflow-y: auto;
     background: var(--md-sys-color-surface);
     border-bottom: 0.0625rem solid var(--md-sys-color-surface-variant); /* 1px */
+    padding: 1rem 1.5rem; /* 16px 24px */
 }
 
 /* View-only state for metadata */
-#metadata-form.view-only {
+.metadata-form.view-only {
     opacity: 0.9;
 }
 
-#metadata-form.view-only .meta-input {
+.metadata-form.view-only .meta-input {
     pointer-events: none;
     background: transparent !important;
     border-color: transparent !important;
 }
 
-#metadata-form.view-only #btn-add-prop,
-#metadata-form.view-only .btn-delete-prop {
+.metadata-form.view-only #btn-add-prop,
+.metadata-form.view-only .btn-delete-prop {
     display: none !important;
 }
 
-.metadata-form {
-    padding: 1rem 1.5rem; /* 16px 24px */
+.metadata-form.collapsed .meta-fields-container {
+    display: none !important;
+}
+
+.metadata-form.collapsed .meta-toggle-icon {
+    transform: rotate(-90deg) !important;
+}
+
+.metadata-form:not(.collapsed) .meta-toggle-icon {
+    transform: rotate(0deg) !important;
 }
 
 .meta-header {
@@ -988,39 +1025,65 @@ input:focus, select:focus, textarea:focus {
 
 .tab-item {
     padding: 0.5rem 1rem;
-    background: var(--md-sys-color-surface);
+    background: color-mix(in srgb, var(--md-sys-color-surface-variant) 40%, var(--md-sys-color-surface));
     border-radius: 0.5rem 0.5rem 0 0;
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--md-sys-color-outline);
+    color: var(--md-sys-color-on-surface-variant);
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    border: 0.0625rem solid transparent;
+    border: 0.0625rem solid var(--md-sys-color-surface-variant);
     border-bottom: none;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, opacity 0.2s;
     white-space: nowrap;
     min-width: 5rem;
     max-width: 12rem;
+    opacity: 0.85;
 }
 
 .tab-item:hover {
     background: color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface));
     color: var(--md-sys-color-primary);
+    opacity: 1;
 }
 
 .tab-item.active {
     background: var(--md-sys-color-surface);
     color: var(--md-sys-color-primary);
-    border-color: var(--md-sys-color-outline);
-    box-shadow: 0 0.125rem 0 0 var(--md-sys-color-surface);
-    z-index: 1;
+    border: 0.0625rem solid var(--md-sys-color-outline);
+    border-bottom: 0.0625rem solid var(--md-sys-color-surface);
+    margin-bottom: -0.0625rem;
+    opacity: 1;
+    z-index: 2;
 }
 
 .tab-title {
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.tab-dirty-dot {
+    color: #f59e0b; /* Amber dirty dot */
+    margin-left: 0.125rem;
+    font-weight: bold;
+    font-size: 1.1rem;
+    line-height: 0.5;
+}
+
+.tab-sync-warning {
+    color: var(--md-sys-color-error, #ef4444);
+    font-size: 1.15rem !important;
+    margin-left: 0.125rem;
+    cursor: pointer;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
 }
 
 .tab-close {
@@ -1047,10 +1110,51 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     width: 100%;
     overflow: hidden;
     min-width: 0;
 }
+
+.visual-editor-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.editor-body-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden; /* Scrolling is handled by body-viewer or CodeMirror-scroll */
+}
+
+.body-viewer {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* EasyMDE Editor Sizing & Scrolling */
+.editor-body-container .CodeMirror:not(.CodeMirror-fullscreen) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: auto;
+}
+
+.editor-body-container .CodeMirror:not(.CodeMirror-fullscreen) .CodeMirror-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 
 .custom-toolbar {
     display: flex;
@@ -1161,3 +1265,490 @@ input:focus, select:focus, textarea:focus {
 .milkdown .editor table p {
     margin: 0;
 }
+
+/* Raw Editor Styles */
+.raw-editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: var(--md-sys-color-surface);
+}
+
+.full-raw-editor {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.95rem;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: var(--md-sys-color-surface-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+}
+
+/* Modal Dialog Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.confirm-modal-content {
+    background: var(--md-sys-color-surface-container-high, #fff);
+    color: var(--md-sys-color-on-surface);
+    padding: 1.5rem 2rem;
+    border-radius: var(--md-sys-shape-corner-large);
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--md-sys-elevation-3);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.confirm-modal-content h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.confirm-modal-content p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--md-sys-color-on-surface-variant);
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.modal-actions button {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    border-radius: var(--md-sys-shape-corner-medium) !important;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.modal-actions .btn-primary {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+}
+
+.modal-actions .btn-secondary {
+    background: var(--md-sys-color-secondary-container) !important;
+    color: var(--md-sys-color-on-secondary-container) !important;
+    border-color: var(--md-sys-color-outline-variant) !important;
+}
+
+.modal-actions .btn-cancel {
+    background: transparent !important;
+    color: var(--md-sys-color-outline) !important;
+    border-color: var(--md-sys-color-outline) !important;
+}
+
+.modal-actions .btn-cancel:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Context Menu Custom Styles */
+.context-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    z-index: 1999;
+}
+
+.context-menu-dropdown {
+    background: color-mix(in srgb, var(--md-sys-color-surface-variant) 25%, var(--md-sys-color-surface)) !important;
+    border: 1px solid var(--md-sys-color-outline-variant, #c5c6d0);
+    border-radius: var(--md-sys-shape-corner-medium);
+    box-shadow: var(--md-sys-elevation-3);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem;
+    min-width: 14rem;
+}
+
+.context-menu-dropdown button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: 0.95rem !important;
+    padding: 0.6rem 0.8rem !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--md-sys-color-on-surface) !important;
+    border-radius: var(--md-sys-shape-corner-small) !important;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.context-menu-dropdown button:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent) !important;
+    color: var(--md-sys-color-primary) !important;
+}
+
+.context-menu-dropdown button span.material-symbols-rounded {
+    font-size: 1.25rem !important;
+}
+
+.context-menu-dropdown .menu-item-text {
+    flex: 1;
+    text-align: left;
+    margin-left: 0.75rem;
+}
+
+.context-menu-dropdown .menu-divider {
+    border: none;
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    margin: 0.4rem 0;
+}
+
+/* Print Styles & Print-Only Elements */
+.print-only-title, .print-only-metadata, .print-only-body-viewer {
+    display: none;
+}
+
+@media print {
+    /* Hide all screen interface elements */
+    body, html, #app, #app-root, .top-header, .sidebar, .tab-bar, 
+    .metadata-form, .editor-toolbar, .CodeMirror, .dropdown-content, 
+    .modal-overlay, .context-menu-overlay, .body-viewer, 
+    .visual-editor-container > *:not(.editor-body-container),
+    .main-content-area > *:not(.editor-instance-container) {
+        display: none !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    /* Force rendering print layouts in standard document flow */
+    #app-root, #app, body, html, .main-content-area, 
+    .editor-instance-container, .visual-editor-container, .editor-body-container {
+        display: block !important;
+        background: white !important;
+        color: black !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    /* Format title nicely at the top of the printed sheet */
+    .print-only-title {
+        display: block !important;
+        font-size: 24pt;
+        font-weight: bold;
+        margin-top: 0;
+        margin-bottom: 0.5cm;
+        padding-bottom: 0.2cm;
+        border-bottom: 1px solid #ccc;
+        page-break-after: avoid;
+    }
+
+    .print-only-metadata {
+        display: block !important;
+        font-size: 14pt;
+        font-family: monospace;
+        background: #fbfbff;
+        padding: 0.75cm;
+        border-radius: 8px;
+        margin-bottom: 1cm;
+        white-space: pre-wrap;
+        page-break-after: avoid;
+        border: 1px solid #ccc;
+        box-shadow: 4px 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    /* Format parsed HTML content for print */
+    .print-only-body-viewer {
+        display: block !important;
+        color: black !important;
+        font-size: 1.1rem !important;
+        line-height: 1.6 !important;
+        font-family: var(--md-sys-typescale-body-large-font);
+    }
+    
+    .print-only-body-viewer h1, .print-only-body-viewer h2, .print-only-body-viewer h3 {
+        page-break-after: avoid;
+        color: black !important;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .print-only-body-viewer p, .print-only-body-viewer li {
+        color: black !important;
+    }
+
+    .print-only-body-viewer pre, .print-only-body-viewer code {
+        background: #f4f4f4 !important;
+        border: 1px solid #ccc !important;
+        page-break-inside: avoid;
+    }
+}
+
+/* AI Quick Add UI Styling */
+.quick-add-container {
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.quick-add-input-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: var(--md-sys-color-surface-container-high, #fff);
+    border: 1.5px solid color-mix(in srgb, var(--md-sys-color-primary) 30%, var(--md-sys-color-outline-variant));
+    border-radius: 28px;
+    padding: 0.25rem 0.5rem 0.25rem 1.25rem;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-add-input-wrapper:focus-within {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent), 0 4px 16px rgba(99, 102, 241, 0.15);
+}
+
+#quick-add-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 1rem;
+    color: var(--md-sys-color-on-surface);
+    height: 2.5rem;
+    padding: 0;
+}
+
+#quick-add-input::placeholder {
+    color: var(--md-sys-color-outline);
+    font-style: italic;
+    opacity: 0.75;
+}
+
+.btn-quick-add {
+    background: linear-gradient(135deg, var(--md-sys-color-primary), #6366f1) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+}
+
+.btn-quick-add:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+}
+
+.btn-quick-add:disabled {
+    background: var(--md-sys-color-surface-variant) !important;
+    color: var(--md-sys-color-outline) !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+}
+
+.btn-quick-add.loading span {
+    animation: quick-add-spin 1.5s linear infinite;
+}
+
+@keyframes quick-add-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Inbox Banner & Card Badge Styling */
+.inbox-banner {
+    display: flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, var(--md-sys-color-surface-container-high));
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 30%, var(--md-sys-color-outline-variant));
+    border-radius: var(--md-sys-shape-corner-medium);
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 1rem 0 1rem;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-process-inbox {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    border-radius: var(--md-sys-shape-corner-small) !important;
+    border: none !important;
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+    cursor: pointer;
+    box-shadow: var(--md-sys-elevation-1);
+    transition: background 0.2s;
+}
+
+.btn-process-inbox:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 90%, black) !important;
+}
+
+.card-inbox-badge {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
+    color: var(--md-sys-color-primary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+}
+
+/* Command Palette Modal Styles */
+.command-palette-overlay {
+    align-items: flex-start;
+    padding-top: 10vh;
+}
+
+.command-palette-container {
+    background: var(--md-sys-color-surface-container-high, #ffffff);
+    color: var(--md-sys-color-on-surface);
+    border-radius: var(--md-sys-shape-corner-large);
+    max-width: 600px;
+    width: 90%;
+    box-shadow: var(--md-sys-elevation-4);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: commandPaletteFadeIn 0.15s ease-out;
+}
+
+@keyframes commandPaletteFadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.command-palette-search-wrapper {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    gap: 0.75rem;
+}
+
+.command-palette-search-wrapper .search-icon {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 1.5rem;
+}
+
+.command-palette-search-wrapper input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--md-sys-color-on-surface);
+    font-size: 1.1rem;
+    flex: 1;
+    padding: 0;
+}
+
+.command-palette-search-wrapper input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.7;
+}
+
+.command-palette-results {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.command-palette-no-results {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.95rem;
+}
+
+.command-palette-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: var(--md-sys-shape-corner-medium);
+    cursor: pointer;
+    gap: 0.75rem;
+    transition: background-color 0.1s;
+    color: var(--md-sys-color-on-surface);
+}
+
+.command-palette-item:hover,
+.command-palette-item.selected {
+    background: var(--md-sys-color-surface-container-highest, #f0f0f4);
+}
+
+.command-palette-item .item-icon {
+    color: var(--md-sys-color-primary);
+    font-size: 1.25rem;
+}
+
+.command-palette-item .item-name {
+    flex: 1;
+    font-size: 0.95rem;
+}
+
+.command-palette-item .item-shortcut-indicator {
+    font-size: 0.75rem;
+    color: var(--md-sys-color-on-surface-variant);
+    background: var(--md-sys-color-surface-container-low, #f5f5f7);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.command-palette-no-results {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.95rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.command-palette-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 1.25rem;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-low, #f5f5f7);
+    gap: 1.5rem;
+    font-size: 0.75rem;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+

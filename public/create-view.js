@@ -1,118 +1,106 @@
-export const CreateNoteComponent = (props, { getState, setState }) => {
+export const CreateNoteComponent = (props, context) => {
   return {
-    div: {
-      class: 'create-view',
-      children: [
-        {
-          div: {
-            class: 'create-form',
-            children: [
-              {
-                h2: {
-                  style: 'margin-top: 0; text-align: center;',
-                  text: 'New Note'
-                }
-              },
-              {
-                input: {
-                  type: 'text',
-                  id: 'new-title',
-                  placeholder: 'Title',
-                  value: () => getState('newNoteTitle', ''),
-                  oninput: (e) => setState('newNoteTitle', e.target.value)
-                }
-              },
-              {
-                div: {
-                  class: 'create-row',
-                  children: [
-                    {
-                      select: {
-                        id: 'type-select',
-                        value: () => getState('newNoteType', 'note'),
-                        onchange: (e) => setState('newNoteType', e.target.value),
-                        children: () => {
-                          const types = getState('types', []);
-                          const customTypes = types.filter(t => !['note', 'task', 'template', 'golf'].includes(t));
-                          const baseOptions = [
-                            { value: 'note', label: 'Note' },
-                            { value: 'task', label: 'Task' },
-                            { value: 'template', label: 'Template' },
-                            { value: 'golf', label: 'Golf' }
-                          ];
-                          
-                          const allOptions = [...baseOptions];
-                          customTypes.forEach(t => {
-                            allOptions.push({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) });
-                          });
-
-                          return allOptions.map(opt => ({
-                            option: {
-                              value: opt.value,
-                              text: opt.label
-                            }
-                          }));
-                        }
-                      }
-                    },
-                    {
-                      select: {
-                        id: 'template-select',
-                        value: () => getState('selectedTemplate', ''),
-                        onchange: (e) => setState('selectedTemplate', e.target.value),
-                        children: () => {
-                          const objects = getState('objects', []);
-                          const templates = objects.filter(o => o.type === 'template');
-                          const allOptions = [{ value: '', label: 'No Template' }];
-                          
-                          templates.forEach(t => {
-                            allOptions.push({ value: t.id, label: t.title });
-                          });
-
-                          return allOptions.map(opt => ({
-                            option: {
-                              value: opt.value,
-                              text: opt.label
-                            }
-                          }));
-                        }
-                      }
-                    }
-                  ]
-                }
-              },
-              {
-                div: {
-                  style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;',
-                  children: [
-                    {
-                      button: {
-                        class: 'btn-primary',
-                        text: 'Create',
-                        onclick: () => {
-                          if (window.appInstance) {
-                            window.appInstance.actions.submitNewNote();
-                          }
-                        }
-                      }
-                    },
-                    {
-                      button: {
-                        text: 'Cancel',
-                        onclick: () => {
-                          if (window.appInstance) {
-                            window.appInstance.actions.cancelNewNote();
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
+    hooks: {
+      onMount: () => {
+        setTimeout(() => {
+          const input = document.getElementById('new-title');
+          if (input) {
+            input.focus();
+            input.select();
           }
+        }, 50);
+      }
+    },
+    render: () => {
+      const { getState, setState } = context;
+      return {
+        div: {
+          class: 'create-view',
+          children: [
+            {
+              div: {
+                class: 'create-form',
+                children: [
+                  {
+                    h2: {
+                      style: { marginTop: '0', textAlign: 'center' },
+                      text: 'New Note'
+                    }
+                  },
+                  {
+                    input: {
+                      type: 'text',
+                      id: 'new-title',
+                      placeholder: 'Title',
+                      value: () => getState('newNoteTitle', ''),
+                      oninput: (e) => setState('newNoteTitle', e.target.value)
+                    }
+                  },
+                  {
+                    div: {
+                      class: 'create-row',
+                      children: [
+                        {
+                          select: {
+                            id: 'class-select',
+                            value: () => getState('newNoteClass', 'note'),
+                            onchange: (e) => setState('newNoteClass', e.target.value),
+                            children: () => {
+                              const classes = getState('classes', []);
+                              const configs = getState('classesConfig', {});
+
+                              return classes.map(c => {
+                                const label = (configs[c] && configs[c].label) || (c.charAt(0).toUpperCase() + c.slice(1));
+                                const isSelected = c === getState('newNoteClass', 'note');
+                                return {
+                                  option: {
+                                    value: c,
+                                    text: label,
+                                    selected: isSelected
+                                  }
+                                };
+                              });
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    div: {
+                      style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
+                      children: [
+                        {
+                          button: {
+                            class: 'btn-primary',
+                            text: 'Create',
+                            onclick: () => {
+                              if (window.appInstance) {
+                                window.appInstance.actions.submitNewNote();
+                              }
+                            }
+                          }
+                        },
+                        {
+                          button: {
+                            text: 'Cancel',
+                            onclick: () => {
+                              if (window.appInstance) {
+                                window.appInstance.actions.cancelNewNote();
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         }
-      ]
+      };
     }
   };
 };
+

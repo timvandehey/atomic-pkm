@@ -1,4 +1,4 @@
-import { GalleryComponent } from './gallery.js?v=5';
+import { GalleryComponent } from './gallery.js?v=52';
 
 export const ExplorerComponent = (props, { getState, setState }) => {
   return {
@@ -10,6 +10,63 @@ export const ExplorerComponent = (props, { getState, setState }) => {
           div: {
             class: 'search-dashboard-container',
             children: [
+              // AI Quick Add Panel
+              {
+                div: {
+                  class: 'quick-add-container',
+                  children: [
+                    {
+                      div: {
+                        class: 'quick-add-input-wrapper',
+                        children: [
+                          {
+                            input: {
+                              id: 'quick-add-input',
+                              type: 'text',
+                              placeholder: 'AI Quick Add: "the gate code at the villa walk in gate is 1234"...',
+                              value: () => getState('quickAddText', ''),
+                              disabled: () => getState('quickAddLoading', false),
+                              oninput: (e) => {
+                                setState('quickAddText', e.target.value);
+                              },
+                              onkeydown: (e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = getState('quickAddText', '');
+                                  if (val && val.trim() && window.appInstance) {
+                                    window.appInstance.actions.quickAddNote(val);
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            button: {
+                              class: () => `btn-quick-add ${getState('quickAddLoading', false) ? 'loading' : ''}`,
+                              title: 'Quick Add with AI',
+                              disabled: () => !getState('quickAddText', '').trim() || getState('quickAddLoading', false),
+                              onclick: () => {
+                                const val = getState('quickAddText', '');
+                                if (val && val.trim() && window.appInstance) {
+                                  window.appInstance.actions.quickAddNote(val);
+                                }
+                              },
+                              children: [
+                                {
+                                  span: {
+                                    class: 'material-symbols-rounded',
+                                    text: () => getState('quickAddLoading', false) ? 'sync' : 'auto_awesome'
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
               {
                 div: {
                   class: 'search-main',
@@ -61,17 +118,19 @@ export const ExplorerComponent = (props, { getState, setState }) => {
                   children: [
                     {
                       select: {
-                        id: 'type-filter',
-                        value: () => getState('searchType', ''),
+                        id: 'class-filter',
+                        value: () => getState('searchClass', ''),
                         onchange: (e) => {
-                          setState('searchType', e.target.value);
+                          setState('searchClass', e.target.value);
                           if (window.appInstance) window.appInstance.actions.fetchObjects();
                         },
                         children: () => {
-                          const types = getState('types', []);
-                          const options = [{ value: '', text: 'All Types' }];
-                          types.forEach(t => {
-                            options.push({ value: t, text: t.charAt(0).toUpperCase() + t.slice(1) });
+                          const classes = getState('classes', []);
+                          const configs = getState('classesConfig', {});
+                          const options = [{ value: '', text: 'All Classes' }];
+                          classes.forEach(t => {
+                            const label = (configs[t] && configs[t].label) || (t.charAt(0).toUpperCase() + t.slice(1));
+                            options.push({ value: t, text: label });
                           });
                           return options.map(opt => ({
                             option: {

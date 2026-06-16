@@ -1,14 +1,13 @@
 export const GalleryComponent = (props, { getState }) => {
-  const typeIcons = {
-    note: 'description',
-    task: 'check_circle',
-    template: 'dashboard_customize',
-    query: 'search',
-    golf: 'sports_golf',
-    meeting: 'groups'
+  const getClassIcon = (classVal) => {
+    const configs = getState('classesConfig', {});
+    return (configs[classVal] && configs[classVal].icon) || 'draft';
   };
 
-  const getTypeIcon = (type) => typeIcons[type] || 'draft';
+  const getClassLabel = (classVal) => {
+    const configs = getState('classesConfig', {});
+    return (configs[classVal] && configs[classVal].label) || classVal;
+  };
 
   const getMetadata = (obj) => {
     if (typeof obj.metadata === 'string') {
@@ -30,7 +29,7 @@ export const GalleryComponent = (props, { getState }) => {
           return [
             {
               div: {
-                style: 'padding: 2rem; text-align: center; color: var(--md-sys-color-outline); font-size: 0.9rem;',
+                style: { padding: '2rem', textAlign: 'center', color: 'var(--md-sys-color-outline)', fontSize: '0.9rem' },
                 text: 'No notes found.'
               }
             }
@@ -39,7 +38,7 @@ export const GalleryComponent = (props, { getState }) => {
 
         return objects.map(obj => {
           const meta = getMetadata(obj);
-          const hasScore = obj.type === 'golf';
+          const hasScore = (obj.class || obj.type) === 'golf';
           
           return {
             article: {
@@ -58,15 +57,24 @@ export const GalleryComponent = (props, { getState }) => {
                       {
                         span: {
                           class: 'material-symbols-rounded card-icon',
-                          text: getTypeIcon(obj.type)
+                          text: getClassIcon(obj.class || obj.type)
                         }
                       },
                       {
                         span: {
                           class: 'card-type',
-                          text: obj.type
+                          text: getClassLabel(obj.class || obj.type)
                         }
-                      }
+                      },
+                      meta._inbox ? {
+                        span: {
+                          class: 'card-inbox-badge',
+                          children: [
+                            { span: { class: 'material-symbols-rounded', style: { fontSize: '0.95rem', verticalAlign: 'middle' }, text: 'inbox' } },
+                            { span: { style: { fontSize: '0.75rem', fontWeight: '600', marginLeft: '0.2rem' }, text: 'INBOX' } }
+                          ]
+                        }
+                      } : null
                     ]
                   }
                 },

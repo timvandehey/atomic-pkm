@@ -1320,6 +1320,7 @@ const app = new Juris({
     MainContentComponent,
     ExplorerComponent,
     EditorComponent,
+    TabEditorComponent,
     AlertModal,
     PromptModal,
     ConfirmModal,

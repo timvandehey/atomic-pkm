@@ -273,11 +273,12 @@ export function renderTabEditor(tab, { getState, setState }) {
     render: () => {
       const activeIdVal = getState('activeTabId');
       const isActive = tab.id === activeIdVal;
-      const isRawMode = isActive ? getState('activeTabRawMode', false) : (tab.isRawMode || false);
-      const isEdit = isActive ? getState('activeTabEditMode', false) : (tab.isEditMode || false);
 
       const list = getState('openTabs', [], false);
       const curr = list.find(x => x.id === tab.id) || tab;
+
+      const isRawMode = isActive ? getState('activeTabRawMode', false) : (curr.isRawMode || false);
+      const isEdit = isActive ? getState('activeTabEditMode', false) : (curr.isEditMode || false);
 
       if (isRawMode) {
         if (curr.lastRenderedMode !== 'raw') {
@@ -715,7 +716,7 @@ export const EditorComponent = (props, { getState, setState }) => {
         const openTabs = getState('openTabs', [], false);
         console.log(`[EditorComponent] children() re-evaluating. Open tabs: ${ids}`);
         return openTabs.map(tab => {
-          return renderTabEditor(tab, { getState, setState });
+          return { TabEditorComponent: { tab: tab, key: tab.id } };
         });
       }
     }

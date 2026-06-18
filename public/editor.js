@@ -1,6 +1,5 @@
 import { renderMarkdown } from './renderer.js?v=52';
 
-// Dictionary to hold EasyMDE instances by tab ID
 const mdeInstances = {};
 
 // Helper to parse dataview results
@@ -34,7 +33,7 @@ async function fetchDataview(script, container) {
   }
 }
 
-// Global function to compile and render Markdown + Dataview with retries
+// Render Markdown + Dataview
 export function renderMarkdownView(tab) {
   let retries = 0;
   const maxRetries = 10;
@@ -67,7 +66,6 @@ export function renderMarkdownView(tab) {
         fetchDataview(script, resultEl);
       });
 
-      // Set click handlers for wiki links
       container.querySelectorAll('.wiki-link').forEach(link => {
         link.onclick = (e) => {
           e.preventDefault();
@@ -76,8 +74,10 @@ export function renderMarkdownView(tab) {
           if (target) {
             window.appInstance.actions.openTab(target);
           } else {
-            window.showConfirm(`Note "${id}" does not exist. Would you like to create it?`, "Create Note", () => {
-              window.appInstance.actions.openNewNoteModal(id.replace(/-/g, ' '));
+            window.showConfirm(`Note "${id}" does not exist. Would you like to create it?`, "Create Note", (yes) => {
+              if (yes) {
+                window.appInstance.actions.openNewNoteModal(id.replace(/-/g, ' '));
+              }
             });
           }
         };
@@ -93,7 +93,7 @@ export function renderMarkdownView(tab) {
   tryRender();
 }
 
-// EasyMDE initialization and cleanup helper with retries
+// EasyMDE initialization
 export function initEasyMDE(tab) {
   const el = document.getElementById(`textarea-editor-${tab.id}`);
   
@@ -140,7 +140,7 @@ export function initEasyMDE(tab) {
 
         mdeInstances[tab.id] = instance;
 
-        instance.codemirror.on("change", (cm, changeObj) => {
+        instance.codemirror.on("change", () => {
           if (tab.isDestroyingEasyMDE) return;
 
           const newVal = instance.value();
@@ -179,6 +179,7 @@ export function initEasyMDE(tab) {
   tryInit();
 }
 
+// Destroy EasyMDE
 export function destroyEasyMDE(tab) {
   tab.isInitializingEasyMDE = false;
   if (mdeInstances[tab.id]) {
@@ -194,7 +195,7 @@ export function destroyEasyMDE(tab) {
   }
 }
 
-// Module-level Metadata property helpers
+// Property type resolution
 function getInputType(key, value, noteClass, getState) {
   const schemas = getState('schemas', {});
   const schema = schemas[noteClass] || {};
@@ -206,11 +207,12 @@ function getInputType(key, value, noteClass, getState) {
   return 'text';
 }
 
+// Add/Delete properties
 function addMetaProp(tab, getState, setState) {
   if (window.showPrompt) {
     window.showPrompt("Property name:", "", (key) => {
       if (key && !key.startsWith('_')) {
-        const tabs = getState('openTabs');
+        const tabs = getState('openTabs', []);
         const updatedTabs = tabs.map(t => {
           if (t.id === tab.id) {
             return {
@@ -224,7 +226,6 @@ function addMetaProp(tab, getState, setState) {
         setState('openTabs', updatedTabs);
         if (window.saveSessionState) window.saveSessionState();
 
-        // Direct DOM update to ensure it expands immediately
         const form = document.getElementById(`metadata-form-${tab.id}`);
         if (form) {
           form.classList.remove('collapsed');
@@ -235,7 +236,7 @@ function addMetaProp(tab, getState, setState) {
 }
 
 function deleteMetaProp(tab, key, getState, setState) {
-  const tabs = getState('openTabs');
+  const tabs = getState('openTabs', []);
   const updatedTabs = tabs.map(t => {
     if (t.id === tab.id) {
       const nextMeta = { ...t.metadata };
@@ -249,7 +250,7 @@ function deleteMetaProp(tab, key, getState, setState) {
 }
 
 function updateMetaProp(tab, key, e, getState, setState) {
-  const tabs = getState('openTabs');
+  const tabs = getState('openTabs', []);
   let val = e.target.value;
   if (e.target.type === 'checkbox') val = e.target.checked;
   else if (e.target.type === 'number') val = Number(e.target.value);
@@ -267,458 +268,282 @@ function updateMetaProp(tab, key, e, getState, setState) {
   if (window.saveSessionState) window.saveSessionState();
 }
 
-// Stateful TabEditorComponent helper function (standard VDOM rendering)
-export function renderTabEditor(tab, { getState, setState }) {
-  return {
-    render: () => {
-      const activeIdVal = getState('activeTabId');
-      const isActive = tab.id === activeIdVal;
-
-      const list = getState('openTabs', [], false);
-      const curr = list.find(x => x.id === tab.id) || tab;
-
-      const isRawMode = isActive ? getState('activeTabRawMode', false) : (curr.isRawMode || false);
-      const isEdit = isActive ? getState('activeTabEditMode', false) : (curr.isEditMode || false);
-
-      if (isRawMode) {
-        if (curr.lastRenderedMode !== 'raw') {
-          destroyEasyMDE(curr);
-          curr.lastRenderedMode = 'raw';
-        }
-
-        return {
-          div: {
-            key: curr.id + '-raw',
-            class: `editor-instance-container ${isActive ? 'active' : 'inactive'}`,
-            style: isActive ? {
-              height: '100%',
-              flex: '1',
-              display: 'flex',
-              flexDirection: 'column'
-            } : {
-              display: 'none'
-            },
-            children: [
-              {
-                textarea: {
-                  key: 'raw-textarea-' + curr.id,
-                  class: 'full-raw-editor',
-                  placeholder: 'Edit raw markdown file...',
-                  value: () => {
-                    const listInner = getState('openTabs', []);
-                    const itemInner = listInner.find(x => x.id === curr.id);
-                    return itemInner ? (itemInner.rawFullContent || '') : '';
-                  },
-                  oninput: (e) => {
-                    const listInner = getState('openTabs', []);
-                    const updatedTabs = listInner.map(x => {
-                      if (x.id === curr.id) {
-                        return { ...x, rawFullContent: e.target.value };
-                      }
-                      return x;
-                    });
-                    setState('openTabs', updatedTabs);
-                    if (window.saveSessionState) window.saveSessionState();
-                  }
-                }
-              }
-            ]
-          }
-        };
-      }
-
-      // Visual Mode (Rich Editor or Previewer)
-      return {
-        div: {
-          key: curr.id + '-visual',
-          class: `editor-instance-container ${isActive ? 'active' : 'inactive'} ${!isEdit ? 'readonly-mode' : ''}`,
-          style: isActive ? {
-            display: 'flex',
-            flexDirection: 'column',
-            flex: '1',
-            minHeight: '0',
-            minWidth: '0'
-          } : {
-            display: 'none'
-          },
-          // Reactive attribute helper to hook into mount/update/state changes of this specific tab
-          'data-init-tab': () => {
-            const activeIdValInner = getState('activeTabId');
-            const activeTabEditModeInner = getState('activeTabEditMode');
-            const isActiveInner = curr.id === activeIdValInner;
-            const isEditInner = isActiveInner ? activeTabEditModeInner : curr.isEditMode;
-
-            // If in view mode, track content changes reactively
-            if (!isEditInner) {
-              const listInner = getState('openTabs', []);
-              const currInner = listInner.find(x => x.id === curr.id);
-              if (currInner) {
-                const content = currInner.content;
-              }
-            }
-
-            console.log(`[renderTabEditor] data-init-tab evaluation for ${curr.id}: isActive=${isActiveInner}, isEdit=${isEditInner}`);
-
-            setTimeout(() => {
-              const listInner = getState('openTabs', [], false);
-              const currInner = listInner.find(x => x.id === curr.id) || curr;
-
-              if (isEditInner) {
-                if (currInner.lastRenderedMode !== 'edit') {
-                  destroyEasyMDE(currInner); // ensure clean state
-                  currInner.lastRenderedMode = 'edit';
-                }
-                if (isActiveInner) {
-                  initEasyMDE(currInner);
-                  if (mdeInstances[curr.id]) {
-                    mdeInstances[curr.id].codemirror.refresh();
-                  }
-                }
-              } else {
-                const viewEl = document.getElementById(`view-content-${curr.id}`);
-                if (viewEl) {
-                  const contentChanged = currInner.lastRenderedContent !== currInner.content;
-                  const modeChanged = currInner.lastRenderedMode !== 'view';
-                  const isEmpty = !viewEl.innerHTML;
-
-                  if (modeChanged || contentChanged || isEmpty) {
-                    if (currInner.lastRenderedMode === 'edit') {
-                      destroyEasyMDE(currInner);
-                    }
-                    currInner.lastRenderedMode = 'view';
-                    currInner.lastRenderedContent = currInner.content;
-                    renderMarkdownView(currInner);
-                  }
-                }
-              }
-            }, 50);
-
-            return `${isEditInner ? 'edit' : 'view'}-${isActiveInner ? 'active' : 'inactive'}`;
-          },
-          children: [
-            {
-              div: {
-                key: 'visual-container-' + curr.id,
-                class: 'visual-editor-container',
-                children: [
-                  // Inbox Banner
-                  () => {
-                    const listInner = getState('openTabs', []);
-                    const itemInner = listInner.find(x => x.id === curr.id);
-                    if (!itemInner || !itemInner.metadata || !itemInner.metadata._inbox) return null;
-                    return {
-                      div: {
-                        key: 'inbox-banner-' + curr.id,
-                        class: 'inbox-banner',
-                        children: [
-                          {
-                            span: {
-                              key: 'inbox-icon-' + curr.id,
-                              class: 'material-symbols-rounded',
-                              style: { color: 'var(--md-sys-color-primary)', marginRight: '0.5rem' },
-                              text: 'inbox'
-                            }
-                          },
-                          {
-                            span: {
-                              key: 'inbox-text-' + curr.id,
-                              style: { flex: '1', fontWeight: '500' },
-                              text: 'This note is in your Inbox (unprocessed).'
-                            }
-                          },
-                          {
-                            button: {
-                              key: 'inbox-btn-' + curr.id,
-                              class: 'btn-process-inbox',
-                              text: 'Mark Processed',
-                              onclick: (e) => {
-                                e.stopPropagation();
-                                if (window.appInstance) {
-                                  window.appInstance.actions.processInboxNote(curr.id);
-                                }
-                              }
-                            }
-                          }
-                        ]
-                      }
-                    };
-                  },
-                  // Metadata Properties Form
-                  {
-                    div: {
-                      key: 'meta-form-' + curr.id,
-                      id: `metadata-form-${curr.id}`,
-                      class: () => {
-                        const listInner = getState('openTabs', []);
-                        const itemInner = listInner.find(x => x.id === curr.id);
-                        const isCollapsed = !(itemInner && itemInner.metaVisible);
-                        const isEditInner = itemInner ? itemInner.isEditMode : false;
-                        return `metadata-form ${!isEditInner ? 'view-only' : ''} ${isCollapsed ? 'collapsed' : ''}`;
-                      },
-                      children: [
-                        {
-                          div: {
-                            key: 'meta-header-' + curr.id,
-                            class: 'meta-header',
-                            onclick: (e) => {
-                              const listInner = getState('openTabs');
-                              const currentTab = listInner.find(x => x.id === curr.id) || curr;
-                              const nextVisible = !currentTab.metaVisible;
-
-                              const updatedTabs = listInner.map(x => {
-                                if (x.id === curr.id) {
-                                  return { ...x, metaVisible: nextVisible };
-                                }
-                                return x;
-                              });
-                              setState('openTabs', updatedTabs);
-                              if (window.saveSessionState) window.saveSessionState();
-
-                              const form = document.getElementById(`metadata-form-${curr.id}`);
-                              if (form) {
-                                form.classList.toggle('collapsed', !nextVisible);
-                              }
-                            },
-                            children: [
-                              {
-                                span: {
-                                  key: 'meta-collapse-icon-' + curr.id,
-                                  class: 'material-symbols-rounded meta-toggle-icon',
-                                  text: 'expand_more'
-                                }
-                              },
-                              {
-                                span: {
-                                  key: 'meta-title-' + curr.id,
-                                  class: 'meta-title',
-                                  text: 'Properties'
-                                }
-                              },
-                              () => {
-                                const listInner = getState('openTabs', []);
-                                const itemInner = listInner.find(x => x.id === curr.id);
-                                const isEditInner = itemInner ? itemInner.isEditMode : false;
-                                if (itemInner && itemInner.metaVisible && isEditInner) {
-                                  return {
-                                    button: {
-                                      key: 'btn-add-prop-' + curr.id,
-                                      class: 'btn-add-prop',
-                                      text: 'Add Property',
-                                      onclick: (e) => {
-                                        e.stopPropagation();
-                                        addMetaProp(curr, getState, setState);
-                                      }
-                                    }
-                                  };
-                                }
-                                return null;
-                              }
-                            ]
-                          }
-                        },
-                        {
-                          div: {
-                            key: 'meta-fields-' + curr.id,
-                            class: 'meta-fields-container',
-                            children: () => {
-                              const listInner = getState('openTabs', []);
-                              const itemInner = listInner.find(x => x.id === curr.id);
-                              if (!itemInner || !itemInner.metadata) return [];
-
-                              const fields = [];
-                              const cleanMeta = Object.fromEntries(
-                                Object.entries(itemInner.metadata).filter(([k]) => !k.startsWith('_'))
-                              );
-
-                              Object.entries(cleanMeta).forEach(([key, val]) => {
-                                const inputType = getInputType(key, val, itemInner.class || itemInner.type, getState);
-                                const isCheckbox = inputType === 'checkbox';
-                                const displayVal = val === null || val === undefined ? '' : val;
-
-                                fields.push({
-                                  div: {
-                                    key: `meta-field-${curr.id}-${key}`,
-                                    class: 'meta-field',
-                                    children: [
-                                      {
-                                        label: {
-                                          key: `meta-label-${curr.id}-${key}`,
-                                          class: 'meta-label',
-                                          text: key + ':'
-                                        }
-                                      },
-                                      {
-                                        input: {
-                                          key: `meta-input-${curr.id}-${key}`,
-                                          type: inputType,
-                                          class: 'meta-input' + (inputType === 'number' ? ' meta-input-number' : inputType === 'date' ? ' meta-input-date' : ''),
-                                          readonly: () => {
-                                            const listInner2 = getState('openTabs', []);
-                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                            return (!itemInner2 || !itemInner2.isEditMode) ? 'readonly' : undefined;
-                                          },
-                                          disabled: () => {
-                                            const listInner2 = getState('openTabs', []);
-                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                            return (!itemInner2 || !itemInner2.isEditMode) ? 'disabled' : undefined;
-                                          },
-                                          value: isCheckbox ? undefined : displayVal,
-                                          checked: isCheckbox ? !!val : undefined,
-                                          onchange: (e) => {
-                                            const listInner2 = getState('openTabs', []);
-                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                            if (itemInner2 && itemInner2.isEditMode) {
-                                              updateMetaProp(itemInner2, key, e, getState, setState);
-                                            }
-                                          }
-                                        }
-                                      },
-                                      () => {
-                                        const listInner2 = getState('openTabs', []);
-                                        const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                        return itemInner2 && itemInner2.isEditMode ? {
-                                          button: {
-                                            key: `meta-delete-${curr.id}-${key}`,
-                                            class: 'delete-prop btn-delete-prop',
-                                            text: '✕',
-                                            onclick: () => deleteMetaProp(curr, key, getState, setState)
-                                          }
-                                        } : null;
-                                      }
-                                    ]
-                                  }
-                                });
-                              });
-
-                              return fields;
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  // Editor Content Body
-                  {
-                    div: {
-                      key: 'body-container-' + curr.id,
-                      class: 'editor-body-container',
-                      children: () => {
-                        const activeIdValInner = getState('activeTabId');
-                        const isActiveInner = curr.id === activeIdValInner;
-                        const isEditInner = isActiveInner ? getState('activeTabEditMode', false) : (curr.isEditMode || false);
-                        const isRawInner = isActiveInner ? getState('activeTabRawMode', false) : (curr.isRawMode || false);
-
-                        const listInner = getState('openTabs', [], false);
-                        const itemInner = listInner.find(x => x.id === curr.id);
-                        if (!itemInner) return [];
-
-                        const children = [
-                          // Print only metadata
-                          {
-                            pre: {
-                              key: 'print-meta-' + curr.id,
-                              class: 'print-only-metadata',
-                              style: () => {
-                                const listInner2 = getState('openTabs', [], false);
-                                const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                if (itemInner2 && itemInner2.metadata) {
-                                  const cleanMeta = Object.fromEntries(
-                                    Object.entries(itemInner2.metadata).filter(([k]) => !k.startsWith('_'))
-                                  );
-                                  if (Object.keys(cleanMeta).length > 0) return {};
-                                }
-                                return { display: 'none' };
-                              },
-                              children: [
-                                {
-                                  code: {
-                                    key: 'print-code-' + curr.id,
-                                    text: () => {
-                                      const listInner2 = getState('openTabs', [], false);
-                                      const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                      if (itemInner2 && itemInner2.metadata) {
-                                        const cleanMeta = Object.fromEntries(
-                                          Object.entries(itemInner2.metadata).filter(([k]) => !k.startsWith('_'))
-                                        );
-                                        if (Object.keys(cleanMeta).length > 0) {
-                                          return jsyaml.dump(cleanMeta, { sortKeys: true }).trim();
-                                        }
-                                      }
-                                      return "";
-                                    }
-                                  }
-                                }
-                              ]
-                            }
-                          },
-                          // Hidden copy of body viewer used for printing
-                          {
-                            div: {
-                              key: 'print-body-' + curr.id,
-                              class: 'print-only-body-viewer',
-                              innerHTML: () => {
-                                const listInner2 = getState('openTabs', [], false);
-                                const itemInner2 = listInner2.find(x => x.id === curr.id);
-                                if (itemInner2) {
-                                  return renderMarkdown(itemInner2.content || "");
-                                }
-                                return "";
-                              }
-                            }
-                          }
-                        ];
-
-                        if (isEditInner) {
-                          children.push({
-                            textarea: {
-                              key: 'textarea-' + curr.id,
-                              id: `textarea-editor-${curr.id}`,
-                              style: { display: 'none' }
-                            }
-                          });
-                        } else {
-                          children.push({
-                            div: {
-                              key: 'viewer-' + curr.id,
-                              id: `view-content-${curr.id}`,
-                              class: 'body-viewer'
-                            }
-                          });
-                        }
-
-                        return children;
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-    }
-  };
+// Escape HTML utility
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Dummy TabEditorComponent function component wrapper to prevent errors from other imports
-export const TabEditorComponent = (props, context) => {
-  return renderTabEditor(props.tab, context);
-};
-
-// Main EditorComponent serves as a list container for standard DOM tab elements
-export const EditorComponent = (props, { getState, setState }) => {
-  return {
-    div: {
-      class: 'editor-instance-container',
-      style: { display: 'flex', flexDirection: 'column', flex: '1', minHeight: '0', minWidth: '0' },
-      children: () => {
-        const ids = getState('openTabIds', '');
-        const openTabs = getState('openTabs', [], false);
-        console.log(`[EditorComponent] children() re-evaluating. Open tabs: ${ids}`);
-        return openTabs.map(tab => {
-          return { TabEditorComponent: { tab: tab, key: tab.id } };
+// Synced tabs rendering
+export function renderEditor(container, app) {
+  const { getState, setState } = app;
+  const openTabs = getState('openTabs', []);
+  const activeTabId = getState('activeTabId', 'explorer');
+  
+  // 1. Create containers for tabs if they don't exist
+  openTabs.forEach(tab => {
+    let tabEl = document.getElementById(`editor-tab-container-${tab.id}`);
+    if (!tabEl) {
+      tabEl = document.createElement('div');
+      tabEl.id = `editor-tab-container-${tab.id}`;
+      tabEl.className = 'editor-instance-container';
+      tabEl.innerHTML = `
+        <div id="inbox-banner-${tab.id}" class="inbox-banner hidden"></div>
+        <div id="metadata-form-${tab.id}" class="metadata-form collapsed">
+          <div class="meta-header" id="meta-header-${tab.id}">
+            <span class="material-symbols-rounded meta-toggle-icon">expand_more</span>
+            <span class="meta-title">Properties</span>
+            <button class="btn-add-prop hidden" id="btn-add-prop-${tab.id}">Add Property</button>
+          </div>
+          <div class="meta-fields-container" id="meta-fields-${tab.id}"></div>
+        </div>
+        <pre class="print-only-metadata" id="print-meta-${tab.id}"><code id="print-code-${tab.id}"></code></pre>
+        <div class="print-only-body-viewer" id="print-body-${tab.id}"></div>
+        <div class="editor-body-container" id="body-container-${tab.id}"></div>
+        <div id="raw-editor-container-${tab.id}" class="raw-editor-container hidden">
+          <textarea class="full-raw-editor" id="raw-textarea-${tab.id}" placeholder="Edit raw markdown file..."></textarea>
+        </div>
+      `;
+      container.appendChild(tabEl);
+    }
+  });
+  
+  // 2. Clean up closed tabs
+  Array.from(container.children).forEach(child => {
+    const id = child.id.replace('editor-tab-container-', '');
+    if (!openTabs.find(t => t.id === id)) {
+      const closedTab = { id };
+      destroyEasyMDE(closedTab);
+      child.remove();
+    }
+  });
+  
+  // 3. Render and sync active / inactive states
+  openTabs.forEach(tab => {
+    const tabEl = document.getElementById(`editor-tab-container-${tab.id}`);
+    if (!tabEl) return;
+    
+    const isActive = tab.id === activeTabId;
+    const isRawMode = isActive ? getState('activeTabRawMode', false) : (tab.isRawMode || false);
+    const isEdit = isActive ? getState('activeTabEditMode', false) : (tab.isEditMode || false);
+    
+    if (isActive) {
+      tabEl.style.display = 'flex';
+      tabEl.className = `editor-instance-container active ${!isEdit ? 'readonly-mode' : ''}`;
+    } else {
+      tabEl.style.display = 'none';
+      tabEl.className = 'editor-instance-container inactive';
+      return; // Do not do further rendering updates for hidden inactive tabs
+    }
+    
+    // Toggling Visual vs Raw mode
+    const rawContainer = tabEl.querySelector(`#raw-editor-container-${tab.id}`);
+    const metadataForm = tabEl.querySelector(`#metadata-form-${tab.id}`);
+    const bodyContainer = tabEl.querySelector(`#body-container-${tab.id}`);
+    const inboxBanner = tabEl.querySelector(`#inbox-banner-${tab.id}`);
+    
+    if (isRawMode) {
+      rawContainer.classList.remove('hidden');
+      metadataForm.classList.add('hidden');
+      bodyContainer.classList.add('hidden');
+      inboxBanner.classList.add('hidden');
+      
+      const rawTextarea = tabEl.querySelector(`#raw-textarea-${tab.id}`);
+      if (rawTextarea.value !== tab.rawFullContent) {
+        rawTextarea.value = tab.rawFullContent || '';
+      }
+      
+      rawTextarea.oninput = (e) => {
+        const updatedTabs = getState('openTabs', []).map(t => {
+          if (t.id === tab.id) {
+            return { ...t, rawFullContent: e.target.value };
+          }
+          return t;
         });
+        setState('openTabs', updatedTabs);
+        if (window.saveSessionState) window.saveSessionState();
+      };
+      
+      if (tab.lastRenderedMode !== 'raw') {
+        destroyEasyMDE(tab);
+        tab.lastRenderedMode = 'raw';
+      }
+      return;
+    }
+    
+    // Visual Mode updates
+    rawContainer.classList.add('hidden');
+    metadataForm.classList.remove('hidden');
+    bodyContainer.classList.remove('hidden');
+    
+    // 3a. Inbox Banner
+    if (tab.metadata && tab.metadata._inbox) {
+      inboxBanner.classList.remove('hidden');
+      inboxBanner.innerHTML = `
+        <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); margin-right: 0.5rem;">inbox</span>
+        <span style="flex: 1; font-weight: 500;">This note is in your Inbox (unprocessed).</span>
+        <button class="btn-process-inbox" id="btn-process-inbox-${tab.id}">Mark Processed</button>
+      `;
+      inboxBanner.querySelector(`#btn-process-inbox-${tab.id}`).onclick = (e) => {
+        e.stopPropagation();
+        if (window.appInstance) {
+          window.appInstance.actions.processInboxNote(tab.id);
+        }
+      };
+    } else {
+      inboxBanner.classList.add('hidden');
+    }
+    
+    // 3b. Print layouts
+    const printMeta = tabEl.querySelector(`#print-meta-${tab.id}`);
+    const printCode = tabEl.querySelector(`#print-code-${tab.id}`);
+    const printBody = tabEl.querySelector(`#print-body-${tab.id}`);
+    
+    const cleanMeta = Object.fromEntries(
+      Object.entries(tab.metadata || {}).filter(([k]) => !k.startsWith('_'))
+    );
+    
+    if (Object.keys(cleanMeta).length > 0) {
+      printMeta.style.display = '';
+      printCode.textContent = jsyaml.dump(cleanMeta, { sortKeys: true }).trim();
+    } else {
+      printMeta.style.display = 'none';
+    }
+    
+    printBody.innerHTML = renderMarkdown(tab.content || "");
+    
+    // 3c. Metadata form panel collapse toggling
+    metadataForm.className = `metadata-form ${!isEdit ? 'view-only' : ''} ${!tab.metaVisible ? 'collapsed' : ''}`;
+    
+    const metaHeader = tabEl.querySelector(`#meta-header-${tab.id}`);
+    metaHeader.onclick = (e) => {
+      const currentTab = getState('openTabs', []).find(t => t.id === tab.id) || tab;
+      const nextVisible = !currentTab.metaVisible;
+      
+      const updatedTabs = getState('openTabs', []).map(t => {
+        if (t.id === tab.id) {
+          return { ...t, metaVisible: nextVisible };
+        }
+        return t;
+      });
+      setState('openTabs', updatedTabs);
+      if (window.saveSessionState) window.saveSessionState();
+      
+      metadataForm.classList.toggle('collapsed', !nextVisible);
+      addPropBtn.classList.toggle('hidden', !(nextVisible && isEdit));
+    };
+    
+    const addPropBtn = tabEl.querySelector(`#btn-add-prop-${tab.id}`);
+    addPropBtn.className = `btn-add-prop ${tab.metaVisible && isEdit ? '' : 'hidden'}`;
+    addPropBtn.onclick = (e) => {
+      e.stopPropagation();
+      addMetaProp(tab, getState, setState);
+    };
+    
+    // 3d. Metadata inputs rendering
+    const fieldsContainer = tabEl.querySelector(`#meta-fields-${tab.id}`);
+    const activeElement = document.activeElement;
+    const isFocusInside = fieldsContainer.contains(activeElement);
+    
+    if (isFocusInside && activeElement.tagName === 'INPUT') {
+      const currentEditingKey = activeElement.dataset.key;
+      fieldsContainer.querySelectorAll('.meta-field').forEach(fieldDiv => {
+        const key = fieldDiv.dataset.key;
+        const input = fieldDiv.querySelector('.meta-input');
+        if (key !== currentEditingKey && input) {
+          const val = cleanMeta[key];
+          const isCheckbox = input.type === 'checkbox';
+          if (isCheckbox) {
+            input.checked = !!val;
+          } else {
+            input.value = val === null || val === undefined ? '' : val;
+          }
+        }
+      });
+    } else {
+      fieldsContainer.innerHTML = '';
+      Object.entries(cleanMeta).forEach(([key, val]) => {
+        const inputType = getInputType(key, val, tab.class || tab.type, getState);
+        const isCheckbox = inputType === 'checkbox';
+        const displayVal = val === null || val === undefined ? '' : val;
+        
+        const fieldDiv = document.createElement('div');
+        fieldDiv.className = 'meta-field';
+        fieldDiv.dataset.key = key;
+        
+        const labelEl = document.createElement('label');
+        labelEl.className = 'meta-label';
+        labelEl.textContent = key + ':';
+        fieldDiv.appendChild(labelEl);
+        
+        const inputEl = document.createElement('input');
+        inputEl.type = inputType;
+        inputEl.dataset.key = key;
+        inputEl.className = 'meta-input' + (inputType === 'number' ? ' meta-input-number' : inputType === 'date' ? ' meta-input-date' : '');
+        if (!isEdit) {
+          inputEl.readOnly = true;
+          inputEl.disabled = true;
+        }
+        if (isCheckbox) {
+          inputEl.checked = !!val;
+        } else {
+          inputEl.value = inputType === 'date' && typeof displayVal === 'string' ? displayVal.split('T')[0] : displayVal;
+        }
+        
+        inputEl.onchange = (e) => {
+          if (isEdit) {
+            updateMetaProp(tab, key, e, getState, setState);
+          }
+        };
+        fieldDiv.appendChild(inputEl);
+        
+        if (isEdit) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'delete-prop btn-delete-prop';
+          delBtn.textContent = '✕';
+          delBtn.onclick = () => deleteMetaProp(tab, key, getState, setState);
+          fieldDiv.appendChild(delBtn);
+        }
+        
+        fieldsContainer.appendChild(fieldDiv);
+      });
+    }
+    
+    // 3e. Visual Editor Content Body
+    if (isEdit) {
+      let textarea = bodyContainer.querySelector(`#textarea-editor-${tab.id}`);
+      if (!textarea) {
+        bodyContainer.innerHTML = `<textarea id="textarea-editor-${tab.id}" style="display: none;"></textarea>`;
+      }
+      
+      if (tab.lastRenderedMode !== 'edit') {
+        destroyEasyMDE(tab);
+        tab.lastRenderedMode = 'edit';
+      }
+      
+      initEasyMDE(tab);
+      if (mdeInstances[tab.id]) {
+        mdeInstances[tab.id].codemirror.refresh();
+      }
+    } else {
+      let viewer = bodyContainer.querySelector(`#view-content-${tab.id}`);
+      if (!viewer) {
+        bodyContainer.innerHTML = `<div id="view-content-${tab.id}" class="body-viewer"></div>`;
+        viewer = bodyContainer.querySelector(`#view-content-${tab.id}`);
+      }
+      
+      const contentChanged = tab.lastRenderedContent !== tab.content;
+      const modeChanged = tab.lastRenderedMode !== 'view';
+      const isEmpty = !viewer.innerHTML;
+      
+      if (modeChanged || contentChanged || isEmpty) {
+        if (tab.lastRenderedMode === 'edit') {
+          destroyEasyMDE(tab);
+        }
+        tab.lastRenderedMode = 'view';
+        tab.lastRenderedContent = tab.content;
+        renderMarkdownView(tab);
       }
     }
-  };
-};
+  });
+}

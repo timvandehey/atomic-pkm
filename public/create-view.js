@@ -1,106 +1,63 @@
-export const CreateNoteComponent = (props, context) => {
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const input = document.getElementById('new-title');
-          if (input) {
-            input.focus();
-            input.select();
-          }
-        }, 50);
-      }
-    },
-    render: () => {
-      const { getState, setState } = context;
-      return {
-        div: {
-          class: 'create-view',
-          children: [
-            {
-              div: {
-                class: 'create-form',
-                children: [
-                  {
-                    h2: {
-                      style: { marginTop: '0', textAlign: 'center' },
-                      text: 'New Note'
-                    }
-                  },
-                  {
-                    input: {
-                      type: 'text',
-                      id: 'new-title',
-                      placeholder: 'Title',
-                      value: () => getState('newNoteTitle', ''),
-                      oninput: (e) => setState('newNoteTitle', e.target.value)
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'create-row',
-                      children: [
-                        {
-                          select: {
-                            id: 'class-select',
-                            value: () => getState('newNoteClass', 'note'),
-                            onchange: (e) => setState('newNoteClass', e.target.value),
-                            children: () => {
-                              const classes = getState('classes', []);
-                              const configs = getState('classesConfig', {});
-
-                              return classes.map(c => {
-                                const label = (configs[c] && configs[c].label) || (c.charAt(0).toUpperCase() + c.slice(1));
-                                const isSelected = c === getState('newNoteClass', 'note');
-                                return {
-                                  option: {
-                                    value: c,
-                                    text: label,
-                                    selected: isSelected
-                                  }
-                                };
-                              });
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    div: {
-                      style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            text: 'Create',
-                            onclick: () => {
-                              if (window.appInstance) {
-                                window.appInstance.actions.submitNewNote();
-                              }
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            text: 'Cancel',
-                            onclick: () => {
-                              if (window.appInstance) {
-                                window.appInstance.actions.cancelNewNote();
-                              }
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
+// Create Note View Component
+export function renderCreateView(container, { getState, setState }) {
+  container.innerHTML = `
+    <div class="create-view">
+      <div class="create-form">
+        <h2 style="margin-top: 0; text-align: center;">New Note</h2>
+        <input type="text" id="new-title" placeholder="Title">
+        <div class="create-row">
+          <select id="class-select"></select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <button id="btn-submit-create" class="btn-primary">Create</button>
+          <button id="btn-cancel-create">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const titleInput = container.querySelector('#new-title');
+  const classSelect = container.querySelector('#class-select');
+  const btnSubmit = container.querySelector('#btn-submit-create');
+  const btnCancel = container.querySelector('#btn-cancel-create');
+  
+  titleInput.value = getState('newNoteTitle', '');
+  
+  const classes = getState('classes', []);
+  const configs = getState('classesConfig', {});
+  const activeClass = getState('newNoteClass', 'note');
+  
+  classes.forEach(c => {
+    const label = (configs[c] && configs[c].label) || (c.charAt(0).toUpperCase() + c.slice(1));
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = label;
+    if (c === activeClass) opt.selected = true;
+    classSelect.appendChild(opt);
+  });
+  
+  titleInput.oninput = (e) => {
+    setState('newNoteTitle', e.target.value);
+  };
+  
+  classSelect.onchange = (e) => {
+    setState('newNoteClass', e.target.value);
+  };
+  
+  btnSubmit.onclick = () => {
+    if (window.appInstance) {
+      window.appInstance.actions.submitNewNote();
     }
   };
-};
-
+  
+  btnCancel.onclick = () => {
+    if (window.appInstance) {
+      window.appInstance.actions.cancelNewNote();
+    }
+  };
+  
+  setTimeout(() => {
+    titleInput.focus();
+    titleInput.select();
+  }, 50);
+}

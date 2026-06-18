@@ -1,20 +1,21 @@
 # Atomic PKM - Todo List
 
 ## 🛠️ Transition to Vanilla ESM Framework (Eliminating Juris.js)
-- [ ] **Remove Juris.js CDNs**: Remove `juris.js` and `juris-headless.js` script tags from `public/index.html`.
-- [ ] **Refactor `public/app.js` to Vanilla ESM**:
+- [x] **Remove Juris.js CDNs**: Remove `juris.js` and `juris-headless.js` script tags from `public/index.html`.
+- [x] **Refactor `public/app.js` to Vanilla ESM**:
   - Implement a lean, centralized `AppStore` for global application state (subscribers, getState, setState).
   - Create targeted DOM update routines (`updateHeader()`, `updateSidebar()`, `updateTabHeaders()`, `updateMainArea()`) that react to state changes without destroying active elements.
   - Setup simple state-driven routing and menu toggle events.
-- [ ] **Refactor `public/editor.js` to Vanilla ESM**:
+- [x] **Refactor `public/editor.js` to Vanilla ESM**:
   - Re-write the properties form factory to directly inject input fields into the properties panel (`#metadata-form`) and handle change events.
   - Rewrite the edit/view/raw switcher to toggle element classes or visibility (`.hidden` / `display: none`) instead of using virtual DOM keys.
   - Ensure EasyMDE is instantiated only when editing is toggled and destroyed when switching out of edit mode.
   - Keep the Raw Markdown editor as a standard `<textarea>` that stays in sync with state.
-- [ ] **Refactor `public/explorer.js` to Vanilla ESM**:
+- [x] **Refactor `public/explorer.js` to Vanilla ESM**:
   - Re-write card grid rendering to clear and repopulate elements directly in the container when the search query or class filter updates.
-- [ ] **Verify Client-Side Markdown & Dataview**:
+- [x] **Verify Client-Side Markdown & Dataview**:
   - Ensure client-side markdown uses `marked.js` and resolves `dataviewjs` blocks by fetching HTML from `/api/query` in a non-blocking way.
+- [ ] **Define Internal Link Routing**: Establish how internal wiki-links and dataview links resolve paths and navigate within the client vs external environments.
 
 ## 📱 Mobile-First Styling Refinements
 - [ ] **Responsive Navigation Drawer**: Refactor CSS to hide the sidebar drawer on mobile screens (< 768px) and slide it in/out on drawer button clicks.

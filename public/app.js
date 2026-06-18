@@ -1,7 +1,80 @@
-import { GalleryComponent } from './gallery.js?v=52';
-import { CreateNoteComponent } from './create-view.js?v=52';
-import { EditorComponent, TabEditorComponent, renderMarkdownView, initEasyMDE, destroyEasyMDE } from './editor.js?v=52';
-import { ExplorerComponent } from './explorer.js?v=52';
+import { renderCreateView } from './create-view.js?v=52';
+import { renderEditor, initEasyMDE, destroyEasyMDE } from './editor.js?v=52';
+import { renderExplorer } from './explorer.js?v=52';
+
+// State Management: Centralized AppStore
+class AppStore {
+  constructor(initialState) {
+    this.state = { ...initialState };
+    this.listeners = {}; // key -> Set of callbacks
+    this.globalListeners = new Set();
+    this.getState = this.getState.bind(this);
+    this.setState = this.setState.bind(this);
+    this.subscribe = this.subscribe.bind(this);
+    this.executeBatch = this.executeBatch.bind(this);
+  }
+  
+  getState(key, defaultValue) {
+    return this.state[key] !== undefined ? this.state[key] : defaultValue;
+  }
+  
+  setState(key, value) {
+    if (this.state[key] !== value) {
+      this.state[key] = value;
+      this.notify(key);
+    }
+  }
+  
+  executeBatch(fn) {
+    this._suppressNotify = true;
+    const changedKeys = new Set();
+    this._batchChangedKeys = changedKeys;
+    try {
+      fn();
+    } finally {
+      this._suppressNotify = false;
+      this._batchChangedKeys = null;
+      for (const k of changedKeys) {
+        this.notify(k);
+      }
+      this.notifyGlobal();
+    }
+  }
+
+  notify(key) {
+    if (this._suppressNotify) {
+      if (this._batchChangedKeys) this._batchChangedKeys.add(key);
+      return;
+    }
+    if (this.listeners[key]) {
+      for (const cb of this.listeners[key]) {
+        try { cb(this.state[key]); } catch (e) { console.error(e); }
+      }
+    }
+    this.notifyGlobal();
+  }
+
+  notifyGlobal() {
+    if (this._suppressNotify) return;
+    for (const cb of this.globalListeners) {
+      try { cb(this.state); } catch (e) { console.error(e); }
+    }
+  }
+
+  subscribe(key, cb) {
+    if (typeof key === 'function') {
+      this.globalListeners.add(key);
+      return () => this.globalListeners.delete(key);
+    }
+    if (!this.listeners[key]) {
+      this.listeners[key] = new Set();
+    }
+    this.listeners[key].add(cb);
+    return () => {
+      this.listeners[key].delete(cb);
+    };
+  }
+}
 
 // Helper to determine if a tab has unsaved changes (dirty)
 export function checkIsDirty(tab) {
@@ -98,479 +171,34 @@ function isTabEqual(tab, payload) {
   return true;
 }
 
-const CloseConfirmModal = (props, context) => {
-  const { getState, setState } = context;
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const btn = document.querySelector('.modal-overlay .btn-primary');
-          if (btn) btn.focus();
-        }, 50);
-      }
-    },
-    render: () => {
-      return {
-        div: {
-          class: 'modal-overlay',
-          tabindex: '0',
-          autofocus: 'autofocus',
-          onclick: (e) => {
-            if (e.target === e.currentTarget) {
-              setState('showCloseConfirm', false);
-              setState('closingTabId', null);
-            }
-          },
-          onkeydown: (e) => {
-            if (e.key === 'Escape') {
-              setState('showCloseConfirm', false);
-              setState('closingTabId', null);
-            } else if (e.key === 'Enter') {
-              // If the user has manually tabbed/focused a non-primary button, let Enter click it normally
-              if (document.activeElement && document.activeElement.tagName === 'BUTTON' && !document.activeElement.classList.contains('btn-primary')) {
-                return;
-              }
-              e.preventDefault();
-              const tabId = getState('closingTabId');
-              if (window.appInstance) {
-                window.appInstance.actions.saveAndClose(tabId);
-              }
-            }
-          },
-          children: [
-            {
-              div: {
-                class: 'confirm-modal-content',
-                children: [
-                  {
-                    h3: {
-                      text: 'Unsaved Changes'
-                    }
-                  },
-                  {
-                    p: {
-                      text: 'This note has unsaved changes. Do you want to save them before closing?'
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'modal-actions',
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            autofocus: 'autofocus',
-                            text: 'Save',
-                            onclick: () => {
-                              const tabId = getState('closingTabId');
-                              if (window.appInstance) {
-                                window.appInstance.actions.saveAndClose(tabId);
-                              }
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            class: 'btn-secondary',
-                            text: "Don't Save",
-                            onclick: () => {
-                              const tabId = getState('closingTabId');
-                              if (window.appInstance) {
-                                window.appInstance.actions.forceCloseTab(tabId);
-                              }
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            class: 'btn-cancel',
-                            text: 'Cancel',
-                            onclick: () => {
-                              setState('showCloseConfirm', false);
-                              setState('closingTabId', null);
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-    }
-  };
-};const AlertModal = (props, context) => {
-  const { getState, setState } = context;
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const btn = document.querySelector('.alert-modal-overlay .btn-primary');
-          if (btn) btn.focus();
-        }, 50);
-      }
-    },
-    render: () => {
-      return {
-        div: {
-          class: 'modal-overlay alert-modal-overlay',
-          tabindex: '0',
-          autofocus: 'autofocus',
-          onclick: (e) => {
-            if (e.target === e.currentTarget) {
-              setState('showAlertModal', false);
-            }
-          },
-          onkeydown: (e) => {
-            if (e.key === 'Escape' || e.key === 'Enter') {
-              e.preventDefault();
-              setState('showAlertModal', false);
-            }
-          },
-          children: [
-            {
-              div: {
-                class: 'confirm-modal-content',
-                children: [
-                  {
-                    h3: {
-                      text: () => getState('alertModalTitle', 'Alert')
-                    }
-                  },
-                  {
-                    p: {
-                      text: () => getState('alertModalMessage', '')
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'modal-actions',
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            autofocus: 'autofocus',
-                            text: 'OK',
-                            onclick: () => {
-                              setState('showAlertModal', false);
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-    }
-  };
-};
-const PromptModal = (props, context) => {
-  const { getState, setState } = context;
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const input = document.querySelector('.prompt-modal-overlay input');
-          if (input) {
-            input.focus();
-            input.select();
-          }
-        }, 50);
-      }
-    },
-    render: () => {
-      return {
-        div: {
-          class: 'modal-overlay prompt-modal-overlay',
-          tabindex: '0',
-          autofocus: 'autofocus',
-          onclick: (e) => {
-            if (e.target === e.currentTarget) {
-              setState('showPromptModal', false);
-              setState('promptCallback', null);
-            }
-          },
-          onkeydown: (e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              setState('showPromptModal', false);
-              setState('promptCallback', null);
-            } else if (e.key === 'Enter') {
-              e.preventDefault();
-              const val = getState('promptModalValue', '');
-              const cb = getState('promptCallback');
-              setState('showPromptModal', false);
-              setState('promptCallback', null);
-              if (cb) cb(val);
-            }
-          },
-          children: [
-            {
-              div: {
-                class: 'confirm-modal-content',
-                children: [
-                  {
-                    h3: {
-                      text: () => getState('promptModalTitle', 'Enter Value')
-                    }
-                  },
-                  {
-                    div: {
-                      style: { margin: '1rem 0' },
-                      children: [
-                        {
-                          input: {
-                            type: 'text',
-                            class: 'meta-input',
-                            style: { width: '100%', boxSizing: 'border-box', fontSize: '1rem', padding: '0.5rem' },
-                            value: () => getState('promptModalValue', ''),
-                            oninput: (e) => {
-                              setState('promptModalValue', e.target.value);
-                            },
-                            autofocus: 'autofocus'
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'modal-actions',
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            text: 'OK',
-                            onclick: () => {
-                              const val = getState('promptModalValue', '');
-                              const cb = getState('promptCallback');
-                              setState('showPromptModal', false);
-                              setState('promptCallback', null);
-                              if (cb) cb(val);
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            class: 'btn-cancel',
-                            text: 'Cancel',
-                            onclick: () => {
-                              setState('showPromptModal', false);
-                              setState('promptCallback', null);
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-    }
-  };
-};
+// HTML Escaping Helper
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-const ConfirmModal = (props, context) => {
-  const { getState, setState } = context;
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const btn = document.querySelector('.confirm-modal-overlay .btn-primary');
-          if (btn) btn.focus();
-        }, 50);
-      }
-    },
-    render: () => {
+// Helper to parse full Markdown string into metadata and content body
+export function parseFullMarkdown(raw) {
+  try {
+    const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+    if (match) {
       return {
-        div: {
-          class: 'modal-overlay confirm-modal-overlay',
-          tabindex: '0',
-          autofocus: 'autofocus',
-          onclick: (e) => {
-            if (e.target === e.currentTarget) {
-              setState('showConfirmModal', false);
-              setState('confirmCallback', null);
-            }
-          },
-          onkeydown: (e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              setState('showConfirmModal', false);
-              setState('confirmCallback', null);
-            } else if (e.key === 'Enter') {
-              if (document.activeElement && document.activeElement.tagName === 'BUTTON' && document.activeElement.classList.contains('btn-cancel')) {
-                return;
-              }
-              e.preventDefault();
-              const cb = getState('confirmCallback');
-              setState('showConfirmModal', false);
-              setState('confirmCallback', null);
-              if (cb) cb(true);
-            }
-          },
-          children: [
-            {
-              div: {
-                class: 'confirm-modal-content',
-                children: [
-                  {
-                    h3: {
-                      text: () => getState('confirmModalTitle', 'Confirm')
-                    }
-                  },
-                  {
-                    p: {
-                      text: () => getState('confirmModalMessage', '')
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'modal-actions',
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            autofocus: 'autofocus',
-                            text: 'Yes',
-                            onclick: () => {
-                              const cb = getState('confirmCallback');
-                              setState('showConfirmModal', false);
-                              setState('confirmCallback', null);
-                              if (cb) cb(true);
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            class: 'btn-cancel',
-                            text: 'No',
-                            onclick: () => {
-                              const cb = getState('confirmCallback');
-                              setState('showConfirmModal', false);
-                              setState('confirmCallback', null);
-                              if (cb) cb(false);
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
+        metadata: jsyaml.load(match[1]),
+        content: match[2].trim()
       };
     }
-  };
-};
+  } catch (e) {
+    console.error("YAML Parse Error", e);
+  }
+  return null;
+}
 
-const ReloadConfirmModal = (props, context) => {
-  const { getState, setState } = context;
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const btn = document.querySelector('.reload-confirm-modal-overlay .btn-primary');
-          if (btn) btn.focus();
-        }, 50);
-      }
-    },
-    render: () => {
-      return {
-        div: {
-          class: 'modal-overlay reload-confirm-modal-overlay',
-          tabindex: '0',
-          autofocus: 'autofocus',
-          onclick: (e) => {
-            if (e.target === e.currentTarget) {
-              setState('showReloadConfirm', false);
-              setState('reloadingTabId', null);
-            }
-          },
-          onkeydown: (e) => {
-            if (e.key === 'Escape') {
-              setState('showReloadConfirm', false);
-              setState('reloadingTabId', null);
-            } else if (e.key === 'Enter') {
-              e.preventDefault();
-              const tabId = getState('reloadingTabId');
-              if (window.appInstance) {
-                window.appInstance.actions.reloadTabContent(tabId);
-              }
-            }
-          },
-          children: [
-            {
-              div: {
-                class: 'confirm-modal-content',
-                children: [
-                  {
-                    h3: {
-                      text: 'Reload Note'
-                    }
-                  },
-                  {
-                    p: {
-                      text: 'This note has been modified on disk. Do you want to reload it and pull the latest changes? Any unsaved local edits will be lost.'
-                    }
-                  },
-                  {
-                    div: {
-                      class: 'modal-actions',
-                      children: [
-                        {
-                          button: {
-                            class: 'btn-primary',
-                            autofocus: 'autofocus',
-                            text: 'Reload',
-                            onclick: () => {
-                              const tabId = getState('reloadingTabId');
-                              if (window.appInstance) {
-                                window.appInstance.actions.reloadTabContent(tabId);
-                              }
-                            }
-                          }
-                        },
-                        {
-                          button: {
-                            class: 'btn-cancel',
-                            text: 'Cancel',
-                            onclick: () => {
-                              setState('showReloadConfirm', false);
-                              setState('reloadingTabId', null);
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-    }
-  };
-};
-
-const getCommands = () => {
-  const activeId = app.getState('activeTabId', 'explorer');
-  const isEditMode = app.getState('activeTabEditMode', false);
-  const isRawMode = app.getState('activeTabRawMode', false);
-  const openTabs = app.getState('openTabs', []);
+// Command Palette options builder
+const getCommands = (store) => {
+  const activeId = store.getState('activeTabId', 'explorer');
+  const isEditMode = store.getState('activeTabEditMode', false);
+  const isRawMode = store.getState('activeTabRawMode', false);
+  const openTabs = store.getState('openTabs', []);
   const tab = openTabs.find(t => t.id === activeId);
 
   const list = [
@@ -579,10 +207,10 @@ const getCommands = () => {
       name: 'Go to Explorer / Dashboard',
       icon: 'grid_view',
       action: () => {
-        app.setState('activeTabId', 'explorer');
-        app.setState('isExplorerActive', true);
-        app.setState('activeTabEditMode', false);
-        app.setState('activeTabRawMode', false);
+        store.setState('activeTabId', 'explorer');
+        store.setState('isExplorerActive', true);
+        store.setState('activeTabEditMode', false);
+        store.setState('activeTabRawMode', false);
       }
     },
     {
@@ -590,36 +218,36 @@ const getCommands = () => {
       name: 'New Note / Create Object',
       icon: 'add_circle',
       shortcut: 'Alt+N',
-      action: () => app.actions.openNewNoteModal()
+      action: () => store.actions.openNewNoteModal()
     },
     {
       id: 'sync-data',
       name: 'Sync Data Folder with SQLite',
       icon: 'sync',
       shortcut: 'Alt+S',
-      action: () => app.actions.handleSync()
+      action: () => store.actions.handleSync()
     },
     {
       id: 'toggle-auto-edit',
-      name: `Toggle Auto-Edit (Currently ${app.getState('autoEdit', false) ? 'ON' : 'OFF'})`,
+      name: `Toggle Auto-Edit (Currently ${store.getState('autoEdit', false) ? 'ON' : 'OFF'})`,
       icon: 'edit_note',
       shortcut: 'Alt+A',
-      action: () => app.actions.toggleAutoEdit()
+      action: () => store.actions.toggleAutoEdit()
     },
     {
       id: 'toggle-auto-properties',
-      name: `Toggle Auto-Show Properties (Currently ${app.getState('autoShowProperties', false) ? 'ON' : 'OFF'})`,
+      name: `Toggle Auto-Show Properties (Currently ${store.getState('autoShowProperties', false) ? 'ON' : 'OFF'})`,
       icon: 'settings_accessibility',
       shortcut: 'Alt+P',
-      action: () => app.actions.toggleAutoShowProperties()
+      action: () => store.actions.toggleAutoShowProperties()
     },
     {
       id: 'open-settings',
       name: 'Open Application Settings',
       icon: 'settings',
       action: () => {
-        const settingsTab = app.getState('objects', []).find(o => o.id === 'settings');
-        if (settingsTab) app.actions.openTab(settingsTab);
+        const settingsTab = store.getState('objects', []).find(o => o.id === 'settings');
+        if (settingsTab) store.actions.openTab(settingsTab);
       }
     },
     {
@@ -627,22 +255,16 @@ const getCommands = () => {
       name: 'Open AI Quick Add Prompt Settings',
       icon: 'smart_toy',
       action: () => {
-        const promptTab = app.getState('objects', []).find(o => o.id === 'prompt-quick-add');
-        if (promptTab) app.actions.openTab(promptTab);
+        const promptTab = store.getState('objects', []).find(o => o.id === 'prompt-quick-add');
+        if (promptTab) store.actions.openTab(promptTab);
       }
     },
     {
       id: 'toggle-hamburger-menu',
-      name: `Toggle Hamburger Menu (Currently ${app.getState('menuOpen', false) ? 'Open' : 'Closed'})`,
+      name: `Toggle Hamburger Menu (Currently ${store.getState('menuOpen', false) ? 'Open' : 'Closed'})`,
       icon: 'menu',
       shortcut: 'Alt+Space',
-      action: () => app.setState('menuOpen', !app.getState('menuOpen', false))
-    },
-    {
-      id: 'toggle-sidebar-mobile',
-      name: `Toggle Sidebar Mobile (Currently ${app.getState('mobileSidebarOpen', false) ? 'Open' : 'Closed'})`,
-      icon: 'dock_to_left',
-      action: () => app.setState('mobileSidebarOpen', !app.getState('mobileSidebarOpen', false))
+      action: () => store.setState('menuOpen', !store.getState('menuOpen', false))
     }
   ];
 
@@ -653,7 +275,7 @@ const getCommands = () => {
         name: 'Save Note',
         icon: 'save',
         shortcut: 'Ctrl+S',
-        action: () => app.actions.saveNote(activeId)
+        action: () => store.actions.saveNote(activeId)
       });
     }
 
@@ -663,8 +285,8 @@ const getCommands = () => {
         name: 'Reload Note from Disk',
         icon: 'refresh',
         action: () => {
-          app.setState('reloadingTabId', activeId);
-          app.setState('showReloadConfirm', true);
+          store.setState('reloadingTabId', activeId);
+          store.setState('showReloadConfirm', true);
         }
       },
       {
@@ -672,19 +294,17 @@ const getCommands = () => {
         name: isEditMode ? 'Switch to View Mode (Read-Only)' : 'Switch to Edit Mode',
         icon: isEditMode ? 'visibility' : 'edit',
         shortcut: 'Alt+E',
-        action: () => app.actions.toggleEditMode(activeId)
+        action: () => store.actions.toggleEditMode(activeId)
       }
     );
 
-    if (activeId !== 'explorer') {
-      list.push({
-        id: 'toggle-raw',
-        name: isRawMode ? 'Switch to Rich Editor' : 'Switch to Raw Markdown Editor',
-        icon: 'code',
-        shortcut: 'Alt+R',
-        action: () => app.actions.toggleRawMode(activeId)
-      });
-    }
+    list.push({
+      id: 'toggle-raw',
+      name: isRawMode ? 'Switch to Rich Editor' : 'Switch to Raw Markdown Editor',
+      icon: 'code',
+      shortcut: 'Alt+R',
+      action: () => store.actions.toggleRawMode(activeId)
+    });
 
     list.push(
       {
@@ -692,14 +312,14 @@ const getCommands = () => {
         name: 'Copy Note Markdown to Clipboard',
         icon: 'content_copy',
         shortcut: 'Alt+C',
-        action: () => app.actions.copyMarkdown(activeId)
+        action: () => store.actions.copyMarkdown(activeId)
       },
       {
         id: 'download-markdown',
         name: 'Download Note as Markdown File',
         icon: 'download',
         shortcut: 'Alt+D',
-        action: () => app.actions.downloadMarkdown(activeId)
+        action: () => store.actions.downloadMarkdown(activeId)
       },
       {
         id: 'print-pdf',
@@ -726,674 +346,66 @@ const getCommands = () => {
   return list;
 };
 
-const CommandPaletteModal = (props, context) => {
-  const { getState, setState } = context;
-  const isOpen = getState('commandPaletteOpen', false);
-  if (!isOpen) return null;
-
-  return {
-    hooks: {
-      onMount: () => {
-        setTimeout(() => {
-          const input = document.getElementById('command-palette-input');
-          if (input) {
-            input.focus();
-            input.select();
-          }
-        }, 50);
-      }
-    },
-    render: () => {
-      const handleKeyDown = (e) => {
-        const query = getState('commandPaletteQuery', '');
-        const selectedIndex = getState('commandPaletteSelectedIndex', 0);
-        const allCommands = getCommands();
-        const filtered = allCommands.filter(c => 
-          c.name.toLowerCase().includes(query.toLowerCase())
-        );
-
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (filtered.length > 0) {
-            setState('commandPaletteSelectedIndex', (selectedIndex + 1) % filtered.length);
-          }
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (filtered.length > 0) {
-            setState('commandPaletteSelectedIndex', (selectedIndex - 1 + filtered.length) % filtered.length);
-          }
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (filtered[selectedIndex]) {
-            filtered[selectedIndex].action();
-            setState('commandPaletteOpen', false);
-            setState('commandPaletteQuery', '');
-          }
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setState('commandPaletteOpen', false);
-          setState('commandPaletteQuery', '');
-        }
-      };
-
-      return {
-        div: {
-          class: 'modal-overlay command-palette-overlay',
-          onclick: () => {
-            setState('commandPaletteOpen', false);
-            setState('commandPaletteQuery', '');
-          },
-          children: [
-            {
-              div: {
-                class: 'command-palette-container',
-                onclick: (e) => e.stopPropagation(),
-                children: [
-                  {
-                    div: {
-                      class: 'command-palette-search-wrapper',
-                      children: [
-                        {
-                          span: {
-                            class: 'material-symbols-rounded search-icon',
-                            text: 'search'
-                          }
-                        },
-                        {
-                          input: {
-                            id: 'command-palette-input',
-                            type: 'text',
-                            placeholder: 'Type a command (e.g. sync, edit, copy)...',
-                            value: () => getState('commandPaletteQuery', ''),
-                            oninput: (e) => {
-                              setState('commandPaletteQuery', e.target.value);
-                              setState('commandPaletteSelectedIndex', 0);
-                            },
-                            onkeydown: handleKeyDown
-                          }
-                        }
-                      ]
-                    }
-                  },
-              {
-                div: {
-                  class: 'command-palette-results',
-                  children: () => {
-                    const query = getState('commandPaletteQuery', '');
-                    const selectedIndex = getState('commandPaletteSelectedIndex', 0);
-                    const allCommands = getCommands();
-                    const filtered = allCommands.filter(c => 
-                      c.name.toLowerCase().includes(query.toLowerCase())
-                    );
-
-                    if (filtered.length === 0) {
-                      return [
-                        {
-                          div: {
-                            class: 'command-palette-no-results',
-                            text: 'No commands found'
-                          }
-                        }
-                      ];
-                    }
-
-                    return filtered.map((cmd, idx) => ({
-                      div: {
-                        class: `command-palette-item ${idx === selectedIndex ? 'selected' : ''}`,
-                        onclick: () => {
-                          cmd.action();
-                          setState('commandPaletteOpen', false);
-                          setState('commandPaletteQuery', '');
-                        },
-                        children: [
-                          {
-                            span: {
-                              class: 'material-symbols-rounded item-icon',
-                              text: cmd.icon
-                            }
-                          },
-                          {
-                            span: {
-                              class: 'item-name',
-                              text: cmd.name
-                            }
-                          },
-                          cmd.shortcut ? {
-                            span: {
-                              class: 'item-shortcut-indicator',
-                              text: cmd.shortcut,
-                              style: { marginRight: '0.5rem' }
-                            }
-                          } : null,
-                          idx === selectedIndex ? {
-                            span: {
-                              class: 'item-shortcut-indicator',
-                              text: 'Enter ↵'
-                            }
-                          } : null
-                        ]
-                      }
-                    }));
-                  }
-                }
-              },
-              {
-                div: {
-                  class: 'command-palette-footer',
-                  children: [
-                    { span: { text: '↑↓ to navigate' } },
-                    { span: { text: '↵ to select' } },
-                    { span: { text: 'esc to close' } }
-                  ]
-                }
-              }
-            ]
-          }
-        }
-      ]
-        }
-      };
-    }
-  };
-};
-
-// Helper to parse full Markdown string into metadata and content body
-function parseFullMarkdown(raw) {
-  try {
-    const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-    if (match) {
-      return {
-        metadata: jsyaml.load(match[1]),
-        content: match[2].trim()
-      };
-    }
-  } catch (e) {
-    console.error("YAML Parse Error", e);
-  }
-  return null;
-}
-
-// Global Top Header Component containing Menus, Tabs, and Note Actions
-const TopHeaderComponent = (props, { getState, setState }) => {
-  return {
-    header: {
-      class: () => {
-        const autoEdit = getState('autoEdit', false);
-        return `top-header ${autoEdit ? 'auto-edit-on' : 'auto-edit-off'}`;
-      },
-      children: [
-        // Left Side: Global Actions Hamburger Menu
-        {
-          div: {
-            class: 'header-left',
-            children: [
-              {
-                div: {
-                  class: 'menu-container',
-                  children: [
-                    {
-                      button: {
-                        id: 'btn-menu',
-                        title: 'Menu',
-                        onclick: () => setState('menuOpen', !getState('menuOpen', false)),
-                        children: [{ span: { class: 'material-symbols-rounded', text: 'menu' } }]
-                      }
-                    },
-                    {
-                      div: {
-                        class: () => `dropdown-content ${getState('menuOpen', false) ? '' : 'hidden'}`,
-                        children: () => {
-                          const activeTabId = getState('activeTabId', 'explorer');
-                          const isEditMode = getState('activeTabEditMode', false);
-                          const isRawMode = getState('activeTabRawMode', false);
-                          const autoEdit = getState('autoEdit', false);
-                          const autoShowProperties = getState('autoShowProperties', false);
-
-                          const menuItems = [
-                            // 1. New Note
-                            {
-                              button: {
-                                id: 'btn-new',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  app.actions.openNewNoteModal();
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'add' } },
-                                  { span: { class: 'menu-item-text', text: 'New Note' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+N' } }
-                                ]
-                              }
-                            },
-                            // 2. Auto-Edit Toggle
-                            {
-                              button: {
-                                id: 'btn-auto-edit',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.toggleAutoEdit();
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: autoEdit ? 'check_box' : 'check_box_outline_blank' } },
-                                  { span: { class: 'menu-item-text', text: 'Auto-Edit' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+A' } }
-                                ]
-                              }
-                            },
-                            // Auto-Show Properties Toggle
-                            {
-                              button: {
-                                id: 'btn-auto-show-properties',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.toggleAutoShowProperties();
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: autoShowProperties ? 'check_box' : 'check_box_outline_blank' } },
-                                  { span: { class: 'menu-item-text', text: 'Auto-Show Properties' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+P' } }
-                                ]
-                              }
-                            },
-                            // 3. Sync Data
-                            {
-                              button: {
-                                id: 'btn-sync',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.handleSync();
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'sync' } },
-                                  { span: { class: 'menu-item-text', text: 'Sync Data' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+S' } }
-                                ]
-                              }
-                            }
-                          ];
-
-                          // Tab-specific options
-                          if (activeTabId !== 'explorer') {
-                            menuItems.push({ hr: { class: 'menu-divider' } });
-
-                            // Reload Note
-                            menuItems.push({
-                              button: {
-                                id: 'btn-reload',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  setState('reloadingTabId', activeTabId);
-                                  setState('showReloadConfirm', true);
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'refresh' } },
-                                  { span: { class: 'menu-item-text', text: 'Reload Note' } }
-                                ]
-                              }
-                            });
-
-                            // 4. Save
-                            if (isEditMode || isRawMode) {
-                              menuItems.push({
-                                button: {
-                                  id: 'btn-save',
-                                  onclick: () => {
-                                    setState('menuOpen', false);
-                                    if (window.appInstance) window.appInstance.actions.saveNote(activeTabId);
-                                  },
-                                  children: [
-                                    { span: { class: 'material-symbols-rounded', text: 'save' } },
-                                    { span: { class: 'menu-item-text', text: 'Save Note' } },
-                                    { span: { class: 'menu-item-hotkey', text: 'Ctrl+S' } }
-                                  ]
-                                }
-                              });
-                            }
-
-                            // 5. Edit/View Toggle
-                            menuItems.push({
-                              button: {
-                                id: 'btn-toggle-edit',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.toggleEditMode(activeTabId);
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: isEditMode ? 'visibility' : 'edit' } },
-                                  { span: { class: 'menu-item-text', text: isEditMode ? 'View Mode' : 'Edit Mode' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+E' } }
-                                ]
-                              }
-                            });
-
-                            // 6. Toggle Raw
-                            if (activeTabId !== 'explorer') {
-                              menuItems.push({
-                                button: {
-                                  id: 'btn-toggle-raw',
-                                  onclick: () => {
-                                    setState('menuOpen', false);
-                                    if (window.appInstance) window.appInstance.actions.toggleRawMode(activeTabId);
-                                  },
-                                  children: [
-                                    { span: { class: 'material-symbols-rounded', text: 'code' } },
-                                    { span: { class: 'menu-item-text', text: 'Raw Markdown' } },
-                                    { span: { class: 'menu-item-hotkey', text: 'Alt+R' } }
-                                  ]
-                                }
-                              });
-                            }
-
-
-                            // Copy Markdown
-                            menuItems.push({
-                              button: {
-                                id: 'btn-copy-markdown',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.copyMarkdown(activeTabId);
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'content_copy' } },
-                                  { span: { class: 'menu-item-text', text: 'Copy Markdown' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+C' } }
-                                ]
-                              }
-                            });
-
-                            // Download Markdown
-                            menuItems.push({
-                              button: {
-                                id: 'btn-download-markdown',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  if (window.appInstance) window.appInstance.actions.downloadMarkdown(activeTabId);
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'download' } },
-                                  { span: { class: 'menu-item-text', text: 'Download Markdown' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+D' } }
-                                ]
-                              }
-                            });
-
-                            // Print PDF
-                            menuItems.push({
-                              button: {
-                                id: 'btn-print',
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  window.print();
-                                },
-                                children: [
-                                  { span: { class: 'material-symbols-rounded', text: 'print' } },
-                                  { span: { class: 'menu-item-text', text: 'Print PDF' } }
-                                ]
-                              }
-                            });
-
-                            // 7. Delete Note
-                            menuItems.push({
-                              button: {
-                                id: 'btn-delete',
-                                style: { color: 'var(--md-sys-color-error)' },
-                                onclick: () => {
-                                  setState('menuOpen', false);
-                                  showConfirm("Are you sure you want to delete this note? This action is permanent.", "Delete Note", (yes) => {
-                                    if (yes && window.appInstance) {
-                                      window.appInstance.actions.deleteNote(activeTabId);
-                                    }
-                                  });
-                                },
-                                children: [
-                                   { span: { class: 'material-symbols-rounded', text: 'delete', style: { color: 'var(--md-sys-color-error)' } } },
-                                  { span: { class: 'menu-item-text', text: 'Delete Note' } },
-                                  { span: { class: 'menu-item-hotkey', text: 'Alt+Del' } }
-                                ]
-                              }
-                            });
-                          }
-
-                          return menuItems;
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        // Center: Tab List
-        {
-          div: {
-            class: 'tab-bar',
-            style: { flex: '1' }, // Occupy remaining header space
-            children: () => {
-              const openTabs = getState('openTabs', []);
-              const activeTabId = getState('activeTabId', 'explorer');
-              
-              // Explorer Tab (static first tab, cannot be closed)
-              const tabs = [
-                {
-                  div: {
-                    class: `tab-item ${activeTabId === 'explorer' ? 'active' : ''}`,
-                    onclick: () => {
-                      if (window.appInstance) {
-                        window.appInstance.actions.setActiveTab('explorer');
-                      }
-                    },
-                    children: [
-                      { span: { class: 'material-symbols-rounded', style: { fontSize: '1.25rem' }, text: 'grid_view' } },
-                      { span: { class: 'tab-title', text: 'Explorer' } }
-                    ]
-                  }
-                }
-              ];
-              
-              // Render open notes as tabs next to it
-              openTabs.forEach(tab => {
-                const isDirty = checkIsDirty(tab);
-
-                tabs.push({
-                  div: {
-                    class: `tab-item ${activeTabId === tab.id ? 'active' : ''}`,
-                    onclick: () => {
-                      if (window.appInstance) {
-                        window.appInstance.actions.setActiveTab(tab.id);
-                      }
-                    },
-                    children: [
-                      { span: { class: 'tab-title', text: tab.title } },
-                      isDirty ? { span: { class: 'tab-dirty-dot', text: '•' } } : null,
-                      tab.isOutOfSync ? {
-                        span: {
-                          class: 'material-symbols-rounded tab-sync-warning',
-                          text: tab.isOutOfSync === 'deleted' ? 'delete' : 'sync_problem',
-                          title: tab.isOutOfSync === 'deleted' ? 'File deleted on disk. Click to resolve.' : 'File updated on disk. Click to reload.',
-                          onclick: (e) => {
-                            e.stopPropagation();
-                            app.setState('reloadingTabId', tab.id);
-                            app.setState('showReloadConfirm', true);
-                          }
-                        }
-                      } : null,
-                      {
-                        span: {
-                          class: 'material-symbols-rounded tab-close',
-                          text: 'close',
-                          onclick: (e) => {
-                            e.stopPropagation();
-                            if (window.appInstance) {
-                              window.appInstance.actions.closeTab(tab.id);
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                });
-              });
-              
-              return tabs;
-            }
-          }
-        }
-      ]
-    }
-  };
-};
-
-// Main Content switcher based on active tab
-const MainContentComponent = (props, context) => {
-  return {
-    div: {
-      class: 'main-content-area',
-      children: () => {
-        const isExplorer = context.getState('isExplorerActive', true);
-        
-        if (isExplorer) {
-          return [ExplorerComponent(props, context)];
-        }
-        return [EditorComponent(props, context)];
-      }
-    }
-  };
-};
-
-// Main App Setup
-const app = new Juris({
-  states: {
-    objects: [],
-    classes: [],
-    classesConfig: {},
-    schemas: {},
-    sidebarWidth: 250,
-    openTabs: [],
-    openTabIds: '',
-    activeTabId: 'explorer',
-    isExplorerActive: true,
-    quickAddText: '',
-    quickAddLoading: false,
-    quickAddError: null,
-    activeTabEditMode: false,
-    activeTabRawMode: false,
-    showCloseConfirm: false,
-    closingTabId: null,
-    mobileSidebarOpen: true,
-    menuOpen: false,
-    advancedSearchOpen: false,
-    searchQuery: '',
-    searchClass: '',
-    searchTag: '',
-    isCreatingNote: false,
-    newNoteTitle: '',
-    newNoteClass: 'note',
-    selectedTemplate: '',
-    autoEdit: localStorage.getItem('pkm_auto_edit') === 'true',
-    autoShowProperties: localStorage.getItem('pkm_auto_show_properties') === 'true',
-    showAlertModal: false,
-    alertModalTitle: 'Alert',
-    alertModalMessage: '',
-    showPromptModal: false,
-    promptModalTitle: '',
-    promptModalValue: '',
-    promptCallback: null,
-    showConfirmModal: false,
-    confirmModalTitle: 'Confirm',
-    confirmModalMessage: '',
-    confirmCallback: null,
-    showReloadConfirm: false,
-    reloadingTabId: null,
-    contextMenuOpen: false,
-    contextMenuX: 0,
-    contextMenuY: 0,
-    commandPaletteOpen: false,
-    commandPaletteQuery: '',
-    commandPaletteSelectedIndex: 0
-  },
-  
-  components: {
-    GalleryComponent,
-    CreateNoteComponent,
-    TopHeaderComponent,
-    MainContentComponent,
-    ExplorerComponent,
-    EditorComponent,
-    TabEditorComponent,
-    AlertModal,
-    PromptModal,
-    ConfirmModal,
-    ReloadConfirmModal,
-    CloseConfirmModal,
-    CommandPaletteModal
-  },
-  
-  layout: {
-    div: {
-      id: 'app-root',
-      children: () => {
-        const isCreatingNote = app.getState('isCreatingNote', false);
-        const showCloseConfirm = app.getState('showCloseConfirm', false);
-        const showAlertModal = app.getState('showAlertModal', false);
-        const showPromptModal = app.getState('showPromptModal', false);
-        const showReloadConfirm = app.getState('showReloadConfirm', false);
-        const showConfirmModal = app.getState('showConfirmModal', false);
-        const commandPaletteOpen = app.getState('commandPaletteOpen', false);
-        const context = app.createContext();
-        if (isCreatingNote) {
-          const list = [{ CreateNoteComponent: {} }];
-          if (commandPaletteOpen) {
-            list.push({ CommandPaletteModal: {} });
-          }
-          return list;
-        }
-        
-        const items = [
-          TopHeaderComponent({}, context),
-          MainContentComponent({}, context)
-        ];
-
-        if (showCloseConfirm) {
-          items.push({ CloseConfirmModal: {} });
-        }
-
-        if (showAlertModal) {
-          items.push({ AlertModal: {} });
-        }
-
-        if (showPromptModal) {
-          items.push({ PromptModal: {} });
-        }
-
-        if (showReloadConfirm) {
-          items.push({ ReloadConfirmModal: {} });
-        }
-
-        if (showConfirmModal) {
-          items.push({ ConfirmModal: {} });
-        }
-
-        if (commandPaletteOpen) {
-          items.push({ CommandPaletteModal: {} });
-        }
-        
-        return items;
-      }
-    }
-  }
+// Initialize centralized store
+const app = new AppStore({
+  objects: [],
+  classes: [],
+  classesConfig: {},
+  schemas: {},
+  sidebarWidth: 250,
+  openTabs: [],
+  openTabIds: '',
+  activeTabId: 'explorer',
+  isExplorerActive: true,
+  quickAddText: '',
+  quickAddLoading: false,
+  quickAddError: null,
+  activeTabEditMode: false,
+  activeTabRawMode: false,
+  showCloseConfirm: false,
+  closingTabId: null,
+  mobileSidebarOpen: true,
+  menuOpen: false,
+  advancedSearchOpen: false,
+  searchQuery: '',
+  searchClass: '',
+  searchTag: '',
+  isCreatingNote: false,
+  newNoteTitle: '',
+  newNoteClass: 'note',
+  selectedTemplate: '',
+  autoEdit: localStorage.getItem('pkm_auto_edit') === 'true',
+  autoShowProperties: localStorage.getItem('pkm_auto_show_properties') === 'true',
+  showAlertModal: false,
+  alertModalTitle: 'Alert',
+  alertModalMessage: '',
+  showPromptModal: false,
+  promptModalTitle: '',
+  promptModalValue: '',
+  promptCallback: null,
+  showConfirmModal: false,
+  confirmModalTitle: 'Confirm',
+  confirmModalMessage: '',
+  confirmCallback: null,
+  showReloadConfirm: false,
+  reloadingTabId: null,
+  commandPaletteOpen: false,
+  commandPaletteQuery: '',
+  commandPaletteSelectedIndex: 0
 });
 
-// Synchronize openTabIds state whenever openTabs changes
+window.appInstance = app;
+
+// Synchronize openTabIds whenever openTabs changes
 app.subscribe('openTabs', () => {
-  const openTabs = app.getState('openTabs', [], false);
+  const openTabs = app.getState('openTabs', []);
   const currentIds = openTabs.map(t => t.id).join(',');
-  const oldIds = app.getState('openTabIds', '', false);
+  const oldIds = app.getState('openTabIds', '');
   if (currentIds !== oldIds) {
     app.setState('openTabIds', currentIds);
   }
 });
-// Function to automatically persist session tabs & active tab states (disabled - refresh starts over)
+
 export function saveSessionState() {}
 window.saveSessionState = saveSessionState;
 
@@ -1410,12 +422,10 @@ export function showToast(message, isError = false) {
   toast.textContent = message;
   document.body.appendChild(toast);
   
-  // Trigger transition
   setTimeout(() => {
     toast.classList.add('show');
   }, 10);
   
-  // Remove after 3 seconds
   setTimeout(() => {
     toast.classList.remove('show');
     setTimeout(() => {
@@ -1441,7 +451,6 @@ export function showConfirm(message, title = "Confirm", callback) {
 }
 window.showConfirm = showConfirm;
 
-// Helper to determine the default note class based on class configurations
 export function getDefaultNoteClass() {
   const configs = app.getState('classesConfig', {});
   for (const [className, config] of Object.entries(configs)) {
@@ -1453,7 +462,7 @@ export function getDefaultNoteClass() {
 }
 window.getDefaultNoteClass = getDefaultNoteClass;
 
-// Attach Actions
+// Actions attachment
 app.actions = {
   async quickAddNote(text) {
     if (!text || !text.trim()) return;
@@ -1474,10 +483,8 @@ app.actions = {
         app.setState('quickAddText', '');
         showToast(`AI Quick-Added: "${data.title}"`);
         
-        // Refresh the note list first
         await app.actions.fetchObjects();
         
-        // Open the newly created note!
         if (data.object) {
           app.actions.openTab(data.object);
         }
@@ -1495,7 +502,7 @@ app.actions = {
   },
 
   async processInboxNote(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       const nextMeta = { ...tab.metadata };
@@ -1679,7 +686,7 @@ app.actions = {
       saveSessionState();
       return;
     }
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === id);
     if (tab) {
       app.executeBatch(() => {
@@ -1699,9 +706,7 @@ app.actions = {
     if (index !== -1) {
       const tab = openTabs[index];
       
-      // Dirty checking prompt before closing
       const isDirty = checkIsDirty(tab);
-        
       if (isDirty) {
         app.setState('closingTabId', id);
         app.setState('showCloseConfirm', true);
@@ -1741,7 +746,7 @@ app.actions = {
   },
 
   async saveAndClose(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       let finalContent = tab.content;
@@ -1803,7 +808,7 @@ app.actions = {
 
   toggleEditMode(tabId) {
     console.log("[App] toggleEditMode executing for:", tabId);
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       if (tab.isEditMode) {
@@ -1827,7 +832,7 @@ app.actions = {
   },
 
   toggleRawMode(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       if (tab.isRawMode) {
@@ -1872,7 +877,7 @@ app.actions = {
   },
 
   async saveNote(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       let finalContent = tab.content;
@@ -1953,7 +958,7 @@ app.actions = {
   },
 
   copyMarkdown(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       let fullMarkdown = '';
@@ -1975,7 +980,7 @@ app.actions = {
   },
 
   downloadMarkdown(tabId) {
-    const tabs = app.getState('openTabs');
+    const tabs = app.getState('openTabs', []);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       let fullMarkdown = '';
@@ -2093,7 +1098,9 @@ app.actions = {
       app.setState('openTabs', updatedTabs);
     }
     app.actions.fetchObjects();
-  },  async reloadTabContent(tabId, payload = null) {
+  },
+
+  async reloadTabContent(tabId, payload = null) {
     console.log(`[App] reloadTabContent: ${tabId}`);
     const openTabs = app.getState('openTabs', []);
     const tab = openTabs.find(t => t.id === tabId);
@@ -2120,7 +1127,7 @@ app.actions = {
         const latestObjects = app.getState('objects', []);
         latestObj = latestObjects.find(o => o.id === tabId);
       } else {
-        app.actions.fetchObjects(); // Fetch in background to update explorer
+        app.actions.fetchObjects();
       }
 
       if (latestObj) {
@@ -2173,23 +1180,719 @@ app.actions = {
   }
 };
 
-// Global accessor
-window.appInstance = app;
+// Render helpers for specific sections
+function updateHeader() {
+  const header = document.getElementById('top-header');
+  if (!header) return;
+  
+  const autoEdit = app.getState('autoEdit', false);
+  header.className = `top-header ${autoEdit ? 'auto-edit-on' : 'auto-edit-off'}`;
+  
+  const activeTabId = app.getState('activeTabId', 'explorer');
+  const isEditMode = app.getState('activeTabEditMode', false);
+  const isRawMode = app.getState('activeTabRawMode', false);
+  const autoShowProperties = app.getState('autoShowProperties', false);
+  const menuOpen = app.getState('menuOpen', false);
+  const openTabs = app.getState('openTabs', []);
+  
+  let menuHtml = `
+    <div class="menu-container">
+      <button id="btn-menu" title="Menu">
+        <span class="material-symbols-rounded">menu</span>
+      </button>
+      <div class="dropdown-content ${menuOpen ? '' : 'hidden'}" id="dropdown-menu">
+        <button id="btn-new">
+          <span class="material-symbols-rounded">add</span>
+          <span class="menu-item-text">New Note</span>
+          <span class="menu-item-hotkey">Alt+N</span>
+        </button>
+        <button id="btn-auto-edit">
+          <span class="material-symbols-rounded">${autoEdit ? 'check_box' : 'check_box_outline_blank'}</span>
+          <span class="menu-item-text">Auto-Edit</span>
+          <span class="menu-item-hotkey">Alt+A</span>
+        </button>
+        <button id="btn-auto-show-properties">
+          <span class="material-symbols-rounded">${autoShowProperties ? 'check_box' : 'check_box_outline_blank'}</span>
+          <span class="menu-item-text">Auto-Show Properties</span>
+          <span class="menu-item-hotkey">Alt+P</span>
+        </button>
+        <button id="btn-sync">
+          <span class="material-symbols-rounded">sync</span>
+          <span class="menu-item-text">Sync Data</span>
+          <span class="menu-item-hotkey">Alt+S</span>
+        </button>
+  `;
+  
+  if (activeTabId !== 'explorer') {
+    menuHtml += `
+        <hr class="menu-divider">
+        <button id="btn-reload">
+          <span class="material-symbols-rounded">refresh</span>
+          <span class="menu-item-text">Reload Note</span>
+        </button>
+        ${(isEditMode || isRawMode) ? `
+        <button id="btn-save">
+          <span class="material-symbols-rounded">save</span>
+          <span class="menu-item-text">Save Note</span>
+          <span class="menu-item-hotkey">Ctrl+S</span>
+        </button>
+        ` : ''}
+        <button id="btn-toggle-edit">
+          <span class="material-symbols-rounded">${isEditMode ? 'visibility' : 'edit'}</span>
+          <span class="menu-item-text">${isEditMode ? 'View Mode' : 'Edit Mode'}</span>
+          <span class="menu-item-hotkey">Alt+E</span>
+        </button>
+        <button id="btn-toggle-raw">
+          <span class="material-symbols-rounded">code</span>
+          <span class="menu-item-text">Raw Markdown</span>
+          <span class="menu-item-hotkey">Alt+R</span>
+        </button>
+        <button id="btn-copy-markdown">
+          <span class="material-symbols-rounded">content_copy</span>
+          <span class="menu-item-text">Copy Markdown</span>
+          <span class="menu-item-hotkey">Alt+C</span>
+        </button>
+        <button id="btn-download-markdown">
+          <span class="material-symbols-rounded">download</span>
+          <span class="menu-item-text">Download Markdown</span>
+          <span class="menu-item-hotkey">Alt+D</span>
+        </button>
+        <button id="btn-print">
+          <span class="material-symbols-rounded">print</span>
+          <span class="menu-item-text">Print PDF</span>
+        </button>
+        <button id="btn-delete" style="color: var(--md-sys-color-error)">
+          <span class="material-symbols-rounded" style="color: var(--md-sys-color-error)">delete</span>
+          <span class="menu-item-text">Delete Note</span>
+          <span class="menu-item-hotkey">Alt+Del</span>
+        </button>
+    `;
+  }
+  
+  menuHtml += `
+      </div>
+    </div>
+  `;
+  
+  header.innerHTML = `
+    <div class="header-left">
+      ${menuHtml}
+    </div>
+    <div class="tab-bar" style="flex: 1;">
+      <div class="tab-item ${activeTabId === 'explorer' ? 'active' : ''}" id="tab-btn-explorer">
+        <span class="material-symbols-rounded" style="font-size: 1.25rem;">grid_view</span>
+        <span class="tab-title">Explorer</span>
+      </div>
+    </div>
+  `;
+  
+  const tabBar = header.querySelector('.tab-bar');
+  openTabs.forEach(tab => {
+    const isDirty = checkIsDirty(tab);
+    const isActive = activeTabId === tab.id;
+    
+    const tabItem = document.createElement('div');
+    tabItem.className = `tab-item ${isActive ? 'active' : ''}`;
+    tabItem.id = `tab-btn-${tab.id}`;
+    
+    let warningHtml = '';
+    if (tab.isOutOfSync) {
+      const isDel = tab.isOutOfSync === 'deleted';
+      warningHtml = `
+        <span class="material-symbols-rounded tab-sync-warning" 
+              title="${isDel ? 'File deleted on disk. Click to resolve.' : 'File updated on disk. Click to reload.'}">${isDel ? 'delete' : 'sync_problem'}</span>
+      `;
+    }
+    
+    tabItem.innerHTML = `
+      <span class="tab-title">${escapeHtml(tab.title)}</span>
+      ${isDirty ? '<span class="tab-dirty-dot">•</span>' : ''}
+      ${warningHtml}
+      <span class="material-symbols-rounded tab-close" data-id="${tab.id}">close</span>
+    `;
+    
+    tabItem.onclick = (e) => {
+      if (e.target.classList.contains('tab-sync-warning')) {
+        e.stopPropagation();
+        app.setState('reloadingTabId', tab.id);
+        app.setState('showReloadConfirm', true);
+        return;
+      }
+      if (e.target.classList.contains('tab-close')) {
+        e.stopPropagation();
+        app.actions.closeTab(tab.id);
+        return;
+      }
+      
+      app.actions.setActiveTab(tab.id);
+    };
+    
+    tabBar.appendChild(tabItem);
+  });
+  
+  header.querySelector('#btn-menu').onclick = (e) => {
+    e.stopPropagation();
+    app.setState('menuOpen', !menuOpen);
+  };
+  
+  header.querySelector('#btn-new').onclick = () => {
+    app.setState('menuOpen', false);
+    app.actions.openNewNoteModal();
+  };
+  
+  header.querySelector('#btn-auto-edit').onclick = () => {
+    app.setState('menuOpen', false);
+    app.actions.toggleAutoEdit();
+  };
+  
+  header.querySelector('#btn-auto-show-properties').onclick = () => {
+    app.setState('menuOpen', false);
+    app.actions.toggleAutoShowProperties();
+  };
+  
+  header.querySelector('#btn-sync').onclick = () => {
+    app.setState('menuOpen', false);
+    app.actions.handleSync();
+  };
+  
+  header.querySelector('#tab-btn-explorer').onclick = () => {
+    app.actions.setActiveTab('explorer');
+  };
+  
+  if (activeTabId !== 'explorer') {
+    header.querySelector('#btn-reload').onclick = () => {
+      app.setState('menuOpen', false);
+      app.setState('reloadingTabId', activeTabId);
+      app.setState('showReloadConfirm', true);
+    };
+    
+    if (isEditMode || isRawMode) {
+      header.querySelector('#btn-save').onclick = () => {
+        app.setState('menuOpen', false);
+        app.actions.saveNote(activeTabId);
+      };
+    }
+    
+    header.querySelector('#btn-toggle-edit').onclick = () => {
+      app.setState('menuOpen', false);
+      app.actions.toggleEditMode(activeTabId);
+    };
+    
+    header.querySelector('#btn-toggle-raw').onclick = () => {
+      app.setState('menuOpen', false);
+      app.actions.toggleRawMode(activeTabId);
+    };
+    
+    header.querySelector('#btn-copy-markdown').onclick = () => {
+      app.setState('menuOpen', false);
+      app.actions.copyMarkdown(activeTabId);
+    };
+    
+    header.querySelector('#btn-download-markdown').onclick = () => {
+      app.setState('menuOpen', false);
+      app.actions.downloadMarkdown(activeTabId);
+    };
+    
+    header.querySelector('#btn-print').onclick = () => {
+      app.setState('menuOpen', false);
+      window.print();
+    };
+    
+    header.querySelector('#btn-delete').onclick = () => {
+      app.setState('menuOpen', false);
+      showConfirm("Are you sure you want to delete this note? This action is permanent.", "Delete Note", (yes) => {
+        if (yes && window.appInstance) {
+          window.appInstance.actions.deleteNote(activeTabId);
+        }
+      });
+    };
+  }
+}
 
-// Bootstrap data
-await app.actions.fetchObjects();
-await app.actions.fetchClasses();
-await app.actions.fetchClassesConfig();
-await app.actions.fetchSchemas();
-await app.actions.fetchSettings();
+function updateMainArea() {
+  const mainContent = document.getElementById('main-content');
+  if (!mainContent) return;
+  
+  const isCreating = app.getState('isCreatingNote', false);
+  const activeTabId = app.getState('activeTabId', 'explorer');
+  
+  if (isCreating) {
+    let container = document.getElementById('create-view-container');
+    if (!container) {
+      mainContent.innerHTML = `<div id="create-view-container" style="height: 100%; width: 100%;"></div>`;
+      container = document.getElementById('create-view-container');
+    }
+    renderCreateView(container, app);
+    return;
+  }
+  
+  if (activeTabId === 'explorer') {
+    let container = document.getElementById('explorer-container');
+    if (!container) {
+      mainContent.innerHTML = `<div id="explorer-container" style="height: 100%; width: 100%; overflow: hidden;"></div>`;
+      container = document.getElementById('explorer-container');
+      renderExplorer(container, app);
+    } else {
+      const noteList = container.querySelector('#note-list');
+      if (noteList) {
+        import('./gallery.js?v=52').then(({ renderGallery }) => {
+          renderGallery(noteList, app);
+        });
+      }
+    }
+    return;
+  }
+  
+  let containerParent = document.getElementById('editor-container-parent');
+  if (!containerParent) {
+    mainContent.innerHTML = `<div id="editor-container-parent" style="display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; height: 100%; width: 100%;"></div>`;
+    containerParent = document.getElementById('editor-container-parent');
+  }
+  renderEditor(containerParent, app);
+}
 
+function updateModals() {
+  const container = document.getElementById('modal-container');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  renderAlertModal(container, app);
+  renderConfirmModal(container, app);
+  renderPromptModal(container, app);
+  renderReloadConfirmModal(container, app);
+  renderCloseConfirmModal(container, app);
+  renderCommandPaletteModal(container, app);
+}
 
+// Modal Render Helpers
+function renderAlertModal(container, app) {
+  const isOpen = app.getState('showAlertModal', false);
+  if (!isOpen) return;
+  
+  const title = app.getState('alertModalTitle', 'Alert');
+  const msg = app.getState('alertModalMessage', '');
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay alert-modal-overlay';
+  modal.tabIndex = 0;
+  modal.innerHTML = `
+    <div class="confirm-modal-content">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(msg)}</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="alert-ok-btn">OK</button>
+      </div>
+    </div>
+  `;
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) app.setState('showAlertModal', false);
+  };
+  
+  modal.onkeydown = (e) => {
+    if (e.key === 'Escape' || e.key === 'Enter') {
+      e.preventDefault();
+      app.setState('showAlertModal', false);
+    }
+  };
+  
+  modal.querySelector('#alert-ok-btn').onclick = () => {
+    app.setState('showAlertModal', false);
+  };
+  
+  container.appendChild(modal);
+  setTimeout(() => modal.querySelector('#alert-ok-btn').focus(), 50);
+}
 
-// Render
-app.render('#app');
+function renderConfirmModal(container, app) {
+  const isOpen = app.getState('showConfirmModal', false);
+  if (!isOpen) return;
+  
+  const title = app.getState('confirmModalTitle', 'Confirm');
+  const msg = app.getState('confirmModalMessage', '');
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay confirm-modal-overlay';
+  modal.tabIndex = 0;
+  modal.innerHTML = `
+    <div class="confirm-modal-content">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(msg)}</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="confirm-yes-btn">Yes</button>
+        <button class="btn-cancel" id="confirm-no-btn">No</button>
+      </div>
+    </div>
+  `;
+  
+  const handleNo = () => {
+    const cb = app.getState('confirmCallback');
+    app.setState('showConfirmModal', false);
+    app.setState('confirmCallback', null);
+    if (cb) cb(false);
+  };
+  
+  const handleYes = () => {
+    const cb = app.getState('confirmCallback');
+    app.setState('showConfirmModal', false);
+    app.setState('confirmCallback', null);
+    if (cb) cb(true);
+  };
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) handleNo();
+  };
+  
+  modal.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleNo();
+    } else if (e.key === 'Enter') {
+      if (document.activeElement && document.activeElement.id === 'confirm-no-btn') return;
+      e.preventDefault();
+      handleYes();
+    }
+  };
+  
+  modal.querySelector('#confirm-yes-btn').onclick = handleYes;
+  modal.querySelector('#confirm-no-btn').onclick = handleNo;
+  
+  container.appendChild(modal);
+  setTimeout(() => modal.querySelector('#confirm-yes-btn').focus(), 50);
+}
 
-// Global keyboard shortcuts (Hotkeys)
-// Helper to blur focused inputs to enable global shortcuts when switching modes/tabs
+function renderPromptModal(container, app) {
+  const isOpen = app.getState('showPromptModal', false);
+  if (!isOpen) return;
+  
+  const title = app.getState('promptModalTitle', 'Enter Value');
+  const initialValue = app.getState('promptModalValue', '');
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay prompt-modal-overlay';
+  modal.tabIndex = 0;
+  modal.innerHTML = `
+    <div class="confirm-modal-content">
+      <h3>${escapeHtml(title)}</h3>
+      <div style="margin: 1rem 0;">
+        <input type="text" class="meta-input" id="prompt-input" style="width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.5rem;">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="prompt-ok-btn">OK</button>
+        <button class="btn-cancel" id="prompt-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  const input = modal.querySelector('#prompt-input');
+  input.value = initialValue;
+  
+  const handleCancel = () => {
+    app.setState('showPromptModal', false);
+    app.setState('promptCallback', null);
+  };
+  
+  const handleOk = () => {
+    const val = input.value;
+    const cb = app.getState('promptCallback');
+    app.setState('showPromptModal', false);
+    app.setState('promptCallback', null);
+    if (cb) cb(val);
+  };
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) handleCancel();
+  };
+  
+  modal.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancel();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      handleOk();
+    }
+  };
+  
+  modal.querySelector('#prompt-ok-btn').onclick = handleOk;
+  modal.querySelector('#prompt-cancel-btn').onclick = handleCancel;
+  
+  container.appendChild(modal);
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
+}
+
+function renderReloadConfirmModal(container, app) {
+  const isOpen = app.getState('showReloadConfirm', false);
+  if (!isOpen) return;
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay reload-confirm-modal-overlay';
+  modal.tabIndex = 0;
+  modal.innerHTML = `
+    <div class="confirm-modal-content">
+      <h3>Reload Note</h3>
+      <p>This note has been modified on disk. Do you want to reload it and pull the latest changes? Any unsaved local edits will be lost.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="reload-confirm-btn">Reload</button>
+        <button class="btn-cancel" id="reload-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  const handleCancel = () => {
+    app.setState('showReloadConfirm', false);
+    app.setState('reloadingTabId', null);
+  };
+  
+  const handleReload = () => {
+    const tabId = app.getState('reloadingTabId');
+    if (window.appInstance) {
+      window.appInstance.actions.reloadTabContent(tabId);
+    }
+  };
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) handleCancel();
+  };
+  
+  modal.onkeydown = (e) => {
+    if (e.key === 'Escape') handleCancel();
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      handleReload();
+    }
+  };
+  
+  modal.querySelector('#reload-confirm-btn').onclick = handleReload;
+  modal.querySelector('#reload-cancel-btn').onclick = handleCancel;
+  
+  container.appendChild(modal);
+  setTimeout(() => modal.querySelector('#reload-confirm-btn').focus(), 50);
+}
+
+function renderCloseConfirmModal(container, app) {
+  const isOpen = app.getState('showCloseConfirm', false);
+  if (!isOpen) return;
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.tabIndex = 0;
+  modal.innerHTML = `
+    <div class="confirm-modal-content">
+      <h3>Unsaved Changes</h3>
+      <p>This note has unsaved changes. Do you want to save them before closing?</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="close-save-btn">Save</button>
+        <button class="btn-secondary" id="close-discard-btn">Don't Save</button>
+        <button class="btn-cancel" id="close-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  const handleCancel = () => {
+    app.setState('showCloseConfirm', false);
+    app.setState('closingTabId', null);
+  };
+  
+  const handleSave = () => {
+    const tabId = app.getState('closingTabId');
+    if (window.appInstance) {
+      window.appInstance.actions.saveAndClose(tabId);
+    }
+  };
+  
+  const handleDiscard = () => {
+    const tabId = app.getState('closingTabId');
+    if (window.appInstance) {
+      window.appInstance.actions.forceCloseTab(tabId);
+    }
+  };
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) handleCancel();
+  };
+  
+  modal.onkeydown = (e) => {
+    if (e.key === 'Escape') handleCancel();
+    else if (e.key === 'Enter') {
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON' && !document.activeElement.classList.contains('btn-primary')) return;
+      e.preventDefault();
+      handleSave();
+    }
+  };
+  
+  modal.querySelector('#close-save-btn').onclick = handleSave;
+  modal.querySelector('#close-discard-btn').onclick = handleDiscard;
+  modal.querySelector('#close-cancel-btn').onclick = handleCancel;
+  
+  container.appendChild(modal);
+  setTimeout(() => modal.querySelector('#close-save-btn').focus(), 50);
+}
+
+function renderCommandPaletteModal(container, app) {
+  const isOpen = app.getState('commandPaletteOpen', false);
+  if (!isOpen) return;
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay command-palette-overlay';
+  modal.innerHTML = `
+    <div class="command-palette-container">
+      <div class="command-palette-search-wrapper">
+        <span class="material-symbols-rounded search-icon">search</span>
+        <input id="command-palette-input" type="text" placeholder="Type a command (e.g. sync, edit, copy)...">
+      </div>
+      <div class="command-palette-results" id="command-palette-results"></div>
+      <div class="command-palette-footer">
+        <span>↑↓ to navigate</span>
+        <span>↵ to select</span>
+        <span>esc to close</span>
+      </div>
+    </div>
+  `;
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      app.setState('commandPaletteOpen', false);
+      app.setState('commandPaletteQuery', '');
+    }
+  };
+  
+  const input = modal.querySelector('#command-palette-input');
+  const resultsContainer = modal.querySelector('#command-palette-results');
+  
+  input.value = app.getState('commandPaletteQuery', '');
+  
+  const updateResults = () => {
+    const query = app.getState('commandPaletteQuery', '');
+    const selectedIndex = app.getState('commandPaletteSelectedIndex', 0);
+    const allCommands = getCommands(app);
+    const filtered = allCommands.filter(c => 
+      c.name.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    resultsContainer.innerHTML = '';
+    if (filtered.length === 0) {
+      resultsContainer.innerHTML = `<div class="command-palette-no-results">No commands found</div>`;
+      return;
+    }
+    
+    filtered.forEach((cmd, idx) => {
+      const item = document.createElement('div');
+      item.className = `command-palette-item ${idx === selectedIndex ? 'selected' : ''}`;
+      item.onclick = () => {
+        cmd.action();
+        app.setState('commandPaletteOpen', false);
+        app.setState('commandPaletteQuery', '');
+      };
+      
+      let shortcutHtml = '';
+      if (cmd.shortcut) {
+        shortcutHtml = `<span class="item-shortcut-indicator" style="margin-right: 0.5rem;">${cmd.shortcut}</span>`;
+      }
+      
+      let enterHtml = '';
+      if (idx === selectedIndex) {
+        enterHtml = `<span class="item-shortcut-indicator">Enter ↵</span>`;
+      }
+      
+      item.innerHTML = `
+        <span class="material-symbols-rounded item-icon">${cmd.icon}</span>
+        <span class="item-name">${escapeHtml(cmd.name)}</span>
+        ${shortcutHtml}
+        ${enterHtml}
+      `;
+      resultsContainer.appendChild(item);
+    });
+  };
+  
+  updateResults();
+  
+  input.oninput = (e) => {
+    app.setState('commandPaletteQuery', e.target.value);
+    app.setState('commandPaletteSelectedIndex', 0);
+    updateResults();
+  };
+  
+  input.onkeydown = (e) => {
+    const query = app.getState('commandPaletteQuery', '');
+    const selectedIndex = app.getState('commandPaletteSelectedIndex', 0);
+    const allCommands = getCommands(app);
+    const filtered = allCommands.filter(c => 
+      c.name.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (filtered.length > 0) {
+        const nextIdx = (selectedIndex + 1) % filtered.length;
+        app.setState('commandPaletteSelectedIndex', nextIdx);
+        updateResults();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (filtered.length > 0) {
+        const nextIdx = (selectedIndex - 1 + filtered.length) % filtered.length;
+        app.setState('commandPaletteSelectedIndex', nextIdx);
+        updateResults();
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[selectedIndex]) {
+        filtered[selectedIndex].action();
+        app.setState('commandPaletteOpen', false);
+        app.setState('commandPaletteQuery', '');
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      app.setState('commandPaletteOpen', false);
+      app.setState('commandPaletteQuery', '');
+    }
+  };
+  
+  container.appendChild(modal);
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
+}
+
+// Master Render loop
+export function renderApp() {
+  updateHeader();
+  updateMainArea();
+  updateModals();
+}
+
+app.subscribe(() => {
+  renderApp();
+});
+
+// Bootstrap flow
+document.addEventListener('DOMContentLoaded', async () => {
+  const root = document.getElementById('app');
+  root.innerHTML = `
+    <div id="app-root">
+      <header class="top-header" id="top-header"></header>
+      <div class="main-content-area" id="main-content"></div>
+      <div id="modal-container"></div>
+    </div>
+  `;
+  
+  renderApp();
+  
+  await app.actions.fetchObjects();
+  await app.actions.fetchClasses();
+  await app.actions.fetchClassesConfig();
+  await app.actions.fetchSchemas();
+  await app.actions.fetchSettings();
+  
+  renderApp();
+});
+
 function blurActiveInput() {
   if (document.activeElement && (
     document.activeElement.tagName === 'INPUT' ||
@@ -2200,22 +1903,22 @@ function blurActiveInput() {
   }
 }
 
+// Keyboard shortcuts (Hotkeys)
 window.addEventListener('keydown', (e) => {
-  // Escape key closes the hamburger menu/command palette if open
   if (e.key === 'Escape' || e.key === 'Esc') {
     if (app.getState('commandPaletteOpen', false)) {
       app.setState('commandPaletteOpen', false);
       app.setState('commandPaletteQuery', '');
+      renderApp();
       return;
     }
     if (app.getState('menuOpen', false)) {
       app.setState('menuOpen', false);
+      renderApp();
       return;
     }
   }
 
-  // If the user is typing inside an input, textarea, or contenteditable element,
-  // ignore global shortcuts EXCEPT for Ctrl+S (saving is always good) and Command Palette toggles
   const isTyping = document.activeElement && (
     document.activeElement.tagName === 'INPUT' ||
     document.activeElement.tagName === 'TEXTAREA' ||
@@ -2227,7 +1930,6 @@ window.addEventListener('keydown', (e) => {
   const isEditMode = app.getState('activeTabEditMode', false);
   const isRawMode = app.getState('activeTabRawMode', false);
 
-  // 1. Ctrl + S (Save Note)
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     if (activeId !== 'explorer' && (isEditMode || isRawMode)) {
       e.preventDefault();
@@ -2236,10 +1938,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // 1.5. Command Palette Toggle shortcuts:
-  // - Alt + Space (requested)
-  // - Ctrl + Space (fallback)
-  // - Alt + K / Ctrl + K (fallback)
   const isPaletteTrigger = 
     (e.altKey && (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar')) ||
     (e.ctrlKey && (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar')) ||
@@ -2254,12 +1952,12 @@ window.addEventListener('keydown', (e) => {
       app.setState('commandPaletteQuery', '');
       app.setState('commandPaletteSelectedIndex', 0);
     }
+    renderApp();
     return;
   }
 
   const keyLower = e.key.toLowerCase();
 
-  // 2. Alt + E (Toggle Edit/View Mode)
   if (e.altKey && keyLower === 'e') {
     if (activeId !== 'explorer') {
       e.preventDefault();
@@ -2268,7 +1966,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // 3. Alt + R (Toggle Raw Markdown)
   if (e.altKey && keyLower === 'r') {
     if (activeId !== 'explorer') {
       e.preventDefault();
@@ -2277,54 +1974,45 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // If typing, ignore other global hotkeys to not interfere with text input
   if (isTyping) return;
 
-  // 4. Alt + N (New Note)
   if (e.altKey && keyLower === 'n') {
     e.preventDefault();
     app.actions.openNewNoteModal();
     return;
   }
 
-  // 5. Alt + A (Toggle Auto-Edit)
   if (e.altKey && keyLower === 'a') {
     e.preventDefault();
     app.actions.toggleAutoEdit();
     return;
   }
 
-  // Alt + P (Toggle Auto-Show Properties)
   if (e.altKey && keyLower === 'p') {
     e.preventDefault();
     app.actions.toggleAutoShowProperties();
     return;
   }
 
-  // 6. Alt + S (Sync Data)
   if (e.altKey && keyLower === 's') {
     e.preventDefault();
     app.actions.handleSync();
     return;
   }
 
-  // Active tab shortcuts
   if (activeId !== 'explorer') {
-    // Alt + C (Copy Markdown)
     if (e.altKey && keyLower === 'c') {
       e.preventDefault();
       app.actions.copyMarkdown(activeId);
       return;
     }
 
-    // Alt + D (Download Markdown)
     if (e.altKey && keyLower === 'd') {
       e.preventDefault();
       app.actions.downloadMarkdown(activeId);
       return;
     }
 
-    // 7. Delete / Backspace (Delete Note)
     const isDeleteKey = e.key === 'Delete' || e.key === 'Del' || (e.altKey && (e.key === 'Backspace' || e.code === 'Backspace'));
     if (isDeleteKey) {
       e.preventDefault();
@@ -2338,7 +2026,6 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Close hamburger menu if clicking outside the menu container
 window.addEventListener('click', (e) => {
   if (app.getState('menuOpen', false)) {
     const menuContainer = document.querySelector('.menu-container');
@@ -2348,7 +2035,7 @@ window.addEventListener('click', (e) => {
   }
 });
 
-// Establish SSE connection for Live Reload & sync monitoring
+// SSE connection for live updates
 const eventSource = new EventSource('/api/live-reload');
 eventSource.onmessage = (event) => {
   const data = event.data;
@@ -2427,6 +2114,7 @@ eventSource.onmessage = (event) => {
     }
   }
 };
+
 eventSource.onerror = (err) => {
   if (eventSource.readyState === EventSource.CONNECTING) {
     console.warn('[SSE] Connection lost. Reconnecting...');
@@ -2434,4 +2122,3 @@ eventSource.onerror = (err) => {
     console.error('[SSE] Connection error:', err);
   }
 };
-

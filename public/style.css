@@ -1751,4 +1751,247 @@ input:focus, select:focus, textarea:focus {
     color: var(--md-sys-color-on-surface-variant);
 }
 
+/* Full-screen tabbed layout overrides */
+#app-root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background: var(--md-sys-color-background);
+}
+
+.top-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    background: var(--md-sys-color-surface-variant);
+    border-bottom: 0.0625rem solid var(--md-sys-color-outline);
+    padding: 0 1rem;
+    height: 3.5rem; /* 56px */
+    min-height: 3.5rem; /* 56px */
+    flex-shrink: 0;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.top-header.auto-edit-on {
+    background: color-mix(in srgb, #0056fb 30%, var(--md-sys-color-surface-variant));
+    border-bottom-color: color-mix(in srgb, #0056fb 50%, var(--md-sys-color-outline));
+}
+
+.top-header.auto-edit-off {
+    background: color-mix(in srgb, #10b981 30%, var(--md-sys-color-surface-variant));
+    border-bottom-color: color-mix(in srgb, #10b981 50%, var(--md-sys-color-outline));
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.header-left button, .header-right button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    border-radius: var(--md-sys-shape-corner-small) !important;
+    border: none !important;
+    background: transparent;
+    color: var(--md-sys-color-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.header-left button:hover, .header-right button:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+.header-left button.btn-primary, .header-right button.btn-primary {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
+}
+
+.top-header .tab-bar {
+    border-bottom: none !important;
+    padding: 0 !important;
+    margin: 0 1rem !important;
+    height: 2.25rem !important;
+    flex: 1;
+    background: transparent !important;
+    align-items: flex-end;
+    overflow-y: hidden !important;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.top-header .tab-bar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.top-header .tab-item {
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+    border: 1px solid var(--md-sys-color-outline) !important;
+    border-bottom: none !important;
+}
+
+.top-header .tab-item.active {
+    background: var(--md-sys-color-surface) !important;
+    color: var(--md-sys-color-primary) !important;
+    box-shadow: 0 0.125rem 0 0 var(--md-sys-color-surface) !important;
+}
+
+.main-content-area {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--md-sys-color-surface);
+}
+
+/* Explorer Dashboard View */
+.explorer-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.search-dashboard-container {
+    width: 100%;
+    max-width: 650px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.search-dashboard-container .search-main {
+    width: 100%;
+}
+
+/* Render note cards as a responsive grid dashboard */
+.explorer-dashboard #note-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+    overflow-y: visible; /* scroll is handled by dashboard container */
+}
+
+.explorer-dashboard .card {
+    margin-bottom: 0 !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 140px;
+    padding: 1.25rem !important;
+    border-radius: var(--md-sys-shape-corner-medium) !important;
+    border: 1px solid var(--md-sys-color-outline-variant, #c5c6d0) !important;
+    background: var(--md-sys-color-surface) !important;
+    box-shadow: var(--md-sys-elevation-1) !important;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+.explorer-dashboard .card:hover {
+    box-shadow: var(--md-sys-elevation-2) !important;
+    transform: translateY(-3px) !important;
+    border-color: var(--md-sys-color-primary) !important;
+}
+
+.explorer-dashboard .card h3 {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    margin: 0 0 0.5rem 0 !important;
+    color: var(--md-sys-color-primary) !important;
+}
+
+.explorer-dashboard .card-content {
+    font-size: 0.9rem !important;
+    color: var(--md-sys-color-on-surface-variant) !important;
+    flex: 1 !important;
+    margin-bottom: 0.75rem !important;
+    line-height: 1.4 !important;
+}
+
+/* EasyMDE theme overrides */
+.editor-toolbar {
+    position: static !important;
+    background: var(--md-sys-color-surface) !important;
+    border-color: var(--md-sys-color-surface-variant) !important;
+    border-radius: var(--md-sys-shape-corner-medium) var(--md-sys-shape-corner-medium) 0 0 !important;
+    padding: 0.5rem 1rem !important;
+}
+.editor-toolbar.fullscreen {
+    position: fixed !important;
+}
+.editor-toolbar button {
+    color: var(--md-sys-color-on-surface) !important;
+    border-radius: var(--md-sys-shape-corner-small) !important;
+    transition: background-color 0.2s;
+}
+.editor-toolbar button:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent) !important;
+    color: var(--md-sys-color-primary) !important;
+}
+.editor-toolbar button.active {
+    background: var(--md-sys-color-primary-container) !important;
+    color: var(--md-sys-color-on-primary-container) !important;
+}
+.CodeMirror {
+    background: var(--md-sys-color-surface) !important;
+    border-color: var(--md-sys-color-surface-variant) !important;
+    border-radius: 0 0 var(--md-sys-shape-corner-medium) var(--md-sys-shape-corner-medium) !important;
+    color: var(--md-sys-color-on-surface) !important;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.95rem;
+    padding: 0.5rem;
+}
+.CodeMirror-cursor {
+    border-left: 2px solid var(--md-sys-color-primary) !important;
+}
+/* Visual alignment of properties form inputs */
+.meta-input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    margin: 0;
+    accent-color: var(--md-sys-color-primary);
+}
+
+/* Responsive media queries */
+@media (max-width: 768px) {
+    .explorer-dashboard {
+        padding: 1.5rem 1rem;
+        gap: 1.5rem;
+    }
+    .top-header {
+        padding: 0 0.5rem;
+    }
+    .top-header .tab-bar {
+        margin: 0 0.5rem !important;
+    }
+    .tab-item {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.75rem !important;
+        min-width: 4rem !important;
+        max-width: 7rem !important;
+        gap: 0.25rem !important;
+    }
+    .header-left button, .header-right button {
+        padding: 0.35rem 0.45rem !important;
+        font-size: 0.8rem !important;
+    }
+}
+
 

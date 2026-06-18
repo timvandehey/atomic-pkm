@@ -676,7 +676,7 @@ const getCommands = () => {
       }
     );
 
-    if (isEditMode || isRawMode) {
+    if (activeId !== 'explorer') {
       list.push({
         id: 'toggle-raw',
         name: isRawMode ? 'Switch to Rich Editor' : 'Switch to Raw Markdown Editor',
@@ -1067,7 +1067,7 @@ const TopHeaderComponent = (props, { getState, setState }) => {
                             });
 
                             // 6. Toggle Raw
-                            if (isEditMode || isRawMode) {
+                            if (activeTabId !== 'explorer') {
                               menuItems.push({
                                 button: {
                                   id: 'btn-toggle-raw',
@@ -2270,10 +2270,8 @@ window.addEventListener('keydown', (e) => {
   // 3. Alt + R (Toggle Raw Markdown)
   if (e.altKey && keyLower === 'r') {
     if (activeId !== 'explorer') {
-      if (isEditMode || isRawMode) {
-        e.preventDefault();
-        app.actions.toggleRawMode(activeId);
-      }
+      e.preventDefault();
+      app.actions.toggleRawMode(activeId);
     }
     return;
   }

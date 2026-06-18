@@ -21,7 +21,7 @@ async function fetchDataview(script, container) {
           e.preventDefault();
           const id = link.getAttribute('data-id');
           if (window.appInstance) {
-            const target = window.appInstance.state.objects.find(o => o.id === id);
+            const target = window.appInstance.getState('objects', []).find(o => o.id === id);
             if (target) window.appInstance.actions.openTab(target);
           }
         };
@@ -269,458 +269,432 @@ function updateMetaProp(tab, key, e, getState, setState) {
 
 // Stateful TabEditorComponent helper function (standard VDOM rendering)
 export function renderTabEditor(tab, { getState, setState }) {
-  const isRawMode = tab.isRawMode;
+  return {
+    render: () => {
+      const activeIdVal = getState('activeTabId');
+      const isActive = tab.id === activeIdVal;
+      const isRawMode = isActive ? getState('activeTabRawMode', false) : (tab.isRawMode || false);
+      const isEdit = isActive ? getState('activeTabEditMode', false) : (tab.isEditMode || false);
 
-  if (isRawMode) {
-    // Sync lastRenderedMode to 'raw' and clean up any EasyMDE instance
-    if (tab.lastRenderedMode !== 'raw') {
-      destroyEasyMDE(tab);
-      tab.lastRenderedMode = 'raw';
-    }
+      const list = getState('openTabs', [], false);
+      const curr = list.find(x => x.id === tab.id) || tab;
 
-    return {
-      div: {
-        key: tab.id,
-        class: () => {
-          const activeIdVal = getState('activeTabId');
-          const isActive = tab.id === activeIdVal;
-          console.log(`[renderTabEditor] RawMode class check for ${tab.id}: activeId=${activeIdVal}, isActive=${isActive}`);
-          return `editor-tab-container ${isActive ? 'active' : 'inactive'}`;
-        },
-        style: () => {
-          const activeIdVal = getState('activeTabId');
-          const isActive = tab.id === activeIdVal;
-          console.log(`[renderTabEditor] RawMode style check for ${tab.id}: activeId=${activeIdVal}, isActive=${isActive}`);
-          if (isActive) {
-            return {
+      if (isRawMode) {
+        if (curr.lastRenderedMode !== 'raw') {
+          destroyEasyMDE(curr);
+          curr.lastRenderedMode = 'raw';
+        }
+
+        return {
+          div: {
+            key: curr.id + '-raw',
+            class: `editor-tab-container ${isActive ? 'active' : 'inactive'}`,
+            style: isActive ? {
               height: '100%',
               flex: '1',
               display: 'flex',
               flexDirection: 'column'
-            };
-          } else {
-            return {
+            } : {
               display: 'none'
-            };
-          }
-        },
-        children: [
-          {
-            textarea: {
-              key: 'raw-textarea-' + tab.id,
-              class: 'full-raw-editor',
-              placeholder: 'Edit raw markdown file...',
-              value: () => {
-                const list = getState('openTabs', []);
-                const item = list.find(x => x.id === tab.id);
-                return item ? (item.rawFullContent || '') : '';
-              },
-              oninput: (e) => {
-                const list = getState('openTabs', []);
-                const updatedTabs = list.map(x => {
-                  if (x.id === tab.id) {
-                    return { ...x, rawFullContent: e.target.value };
-                  }
-                  return x;
-                });
-                setState('openTabs', updatedTabs);
-                if (window.saveSessionState) window.saveSessionState();
-              }
-            }
-          }
-        ]
-      }
-    };
-  }
-
-  return {
-    div: {
-      key: tab.id,
-      class: () => {
-        const activeIdVal = getState('activeTabId');
-        const isActive = tab.id === activeIdVal;
-        const list = getState('openTabs', []);
-        const curr = list.find(x => x.id === tab.id) || tab;
-        const isEdit = curr.isEditMode;
-        console.log(`[renderTabEditor] VisualMode class check for ${tab.id}: activeId=${activeIdVal}, isActive=${isActive}, isEdit=${isEdit}`);
-        return `editor-tab-container ${isActive ? 'active' : 'inactive'} ${!isEdit ? 'readonly-mode' : ''}`;
-      },
-      style: () => {
-        const activeIdVal = getState('activeTabId');
-        const isActive = tab.id === activeIdVal;
-        console.log(`[renderTabEditor] VisualMode style check for ${tab.id}: activeId=${activeIdVal}, isActive=${isActive}`);
-        if (isActive) {
-          return {
-            display: 'flex',
-            flexDirection: 'column',
-            flex: '1',
-            minHeight: '0',
-            minWidth: '0'
-          };
-        } else {
-          return {
-            display: 'none'
-          };
-        }
-      },
-      // Reactive attribute helper to hook into mount/update/state changes of this specific tab
-      'data-init-tab': () => {
-        const activeIdVal = getState('activeTabId');
-        const activeTabEditMode = getState('activeTabEditMode');
-        const isActive = tab.id === activeIdVal;
-        const isEdit = isActive ? activeTabEditMode : tab.isEditMode;
-
-        // If in view mode, track content changes reactively
-        if (!isEdit) {
-          const list = getState('openTabs', []);
-          const curr = list.find(x => x.id === tab.id);
-          if (curr) {
-            const content = curr.content;
-          }
-        }
-
-        console.log(`[renderTabEditor] data-init-tab evaluation for ${tab.id}: isActive=${isActive}, isEdit=${isEdit}`);
-
-        setTimeout(() => {
-          const list = getState('openTabs', [], false);
-          const curr = list.find(x => x.id === tab.id) || tab;
-
-          if (isEdit) {
-            if (curr.lastRenderedMode !== 'edit') {
-              destroyEasyMDE(curr); // ensure clean state
-              curr.lastRenderedMode = 'edit';
-            }
-            if (isActive) {
-              initEasyMDE(curr);
-              if (mdeInstances[tab.id]) {
-                mdeInstances[tab.id].codemirror.refresh();
-              }
-            }
-          } else {
-            const viewEl = document.getElementById(`view-content-${tab.id}`);
-            if (viewEl) {
-              const contentChanged = curr.lastRenderedContent !== curr.content;
-              const modeChanged = curr.lastRenderedMode !== 'view';
-              const isEmpty = !viewEl.innerHTML;
-
-              if (modeChanged || contentChanged || isEmpty) {
-                if (curr.lastRenderedMode === 'edit') {
-                  destroyEasyMDE(curr);
-                }
-                curr.lastRenderedMode = 'view';
-                curr.lastRenderedContent = curr.content;
-                renderMarkdownView(curr);
-              }
-            }
-          }
-        }, 50);
-
-        return `${isEdit ? 'edit' : 'view'}-${isActive ? 'active' : 'inactive'}`;
-      },
-      children: [
-        {
-          div: {
-            key: 'visual-container-' + tab.id,
-            class: 'visual-editor-container',
+            },
             children: [
-              // Inbox Banner
-              () => {
-                const list = getState('openTabs', []);
-                const item = list.find(x => x.id === tab.id);
-                if (!item || !item.metadata || !item.metadata._inbox) return null;
-                return {
-                  div: {
-                    key: 'inbox-banner-' + tab.id,
-                    class: 'inbox-banner',
-                    children: [
-                      {
-                        span: {
-                          key: 'inbox-icon-' + tab.id,
-                          class: 'material-symbols-rounded',
-                          style: { color: 'var(--md-sys-color-primary)', marginRight: '0.5rem' },
-                          text: 'inbox'
-                        }
-                      },
-                      {
-                        span: {
-                          key: 'inbox-text-' + tab.id,
-                          style: { flex: '1', fontWeight: '500' },
-                          text: 'This note is in your Inbox (unprocessed).'
-                        }
-                      },
-                      {
-                        button: {
-                          key: 'inbox-btn-' + tab.id,
-                          class: 'btn-process-inbox',
-                          text: 'Mark Processed',
-                          onclick: (e) => {
-                            e.stopPropagation();
-                            if (window.appInstance) {
-                              window.appInstance.actions.processInboxNote(tab.id);
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                };
-              },
-              // Metadata Properties Form
               {
-                div: {
-                  key: 'meta-form-' + tab.id,
-                  id: `metadata-form-${tab.id}`,
-                  class: () => {
-                    const list = getState('openTabs', []);
-                    const item = list.find(x => x.id === tab.id);
-                    const isCollapsed = !(item && item.metaVisible);
-                    const isEdit = item ? item.isEditMode : false;
-                    return `metadata-form ${!isEdit ? 'view-only' : ''} ${isCollapsed ? 'collapsed' : ''}`;
+                textarea: {
+                  key: 'raw-textarea-' + curr.id,
+                  class: 'full-raw-editor',
+                  placeholder: 'Edit raw markdown file...',
+                  value: () => {
+                    const listInner = getState('openTabs', []);
+                    const itemInner = listInner.find(x => x.id === curr.id);
+                    return itemInner ? (itemInner.rawFullContent || '') : '';
                   },
-                  children: [
-                    {
-                      div: {
-                        key: 'meta-header-' + tab.id,
-                        class: 'meta-header',
-                        onclick: (e) => {
-                          const list = getState('openTabs');
-                          const currentTab = list.find(x => x.id === tab.id) || tab;
-                          const nextVisible = !currentTab.metaVisible;
-
-                          const updatedTabs = list.map(x => {
-                            if (x.id === tab.id) {
-                              return { ...x, metaVisible: nextVisible };
-                            }
-                            return x;
-                          });
-                          setState('openTabs', updatedTabs);
-                          if (window.saveSessionState) window.saveSessionState();
-
-                          const form = document.getElementById(`metadata-form-${tab.id}`);
-                          if (form) {
-                            form.classList.toggle('collapsed', !nextVisible);
-                          }
-                        },
-                        children: [
-                          {
-                            span: {
-                              key: 'meta-collapse-icon-' + tab.id,
-                              class: 'material-symbols-rounded collapse-icon',
-                              text: 'expand_more'
-                            }
-                          },
-                          {
-                            span: {
-                              key: 'meta-title-' + tab.id,
-                              class: 'meta-title',
-                              text: 'Properties'
-                            }
-                          },
-                          () => {
-                            const list = getState('openTabs', []);
-                            const item = list.find(x => x.id === tab.id);
-                            const isEdit = item ? item.isEditMode : false;
-                            if (item && item.metaVisible && isEdit) {
-                              return {
-                                button: {
-                                  key: 'btn-add-prop-' + tab.id,
-                                  class: 'btn-add-prop',
-                                  text: 'Add Property',
-                                  onclick: (e) => {
-                                    e.stopPropagation();
-                                    addMetaProp(tab, getState, setState);
-                                  }
-                                }
-                              };
-                            }
-                            return null;
-                          }
-                        ]
+                  oninput: (e) => {
+                    const listInner = getState('openTabs', []);
+                    const updatedTabs = listInner.map(x => {
+                      if (x.id === curr.id) {
+                        return { ...x, rawFullContent: e.target.value };
                       }
-                    },
-                    {
-                      div: {
-                        key: 'meta-fields-' + tab.id,
-                        class: 'meta-fields-container',
-                        children: () => {
-                          const list = getState('openTabs', []);
-                          const item = list.find(x => x.id === tab.id);
-                          if (!item || !item.metadata) return [];
-
-                          const fields = [];
-                          const cleanMeta = Object.fromEntries(
-                            Object.entries(item.metadata).filter(([k]) => !k.startsWith('_'))
-                          );
-
-                          Object.entries(cleanMeta).forEach(([key, val]) => {
-                            const inputType = getInputType(key, val, item.class || item.type, getState);
-                            const isCheckbox = inputType === 'checkbox';
-                            const displayVal = val === null || val === undefined ? '' : val;
-
-                            fields.push({
-                              div: {
-                                key: `meta-row-${tab.id}-${key}`,
-                                class: 'meta-row',
-                                children: [
-                                  {
-                                    span: {
-                                      key: `meta-label-${tab.id}-${key}`,
-                                      class: 'meta-label',
-                                      text: key
-                                    }
-                                  },
-                                  {
-                                    div: {
-                                      key: `meta-value-${tab.id}-${key}`,
-                                      class: 'meta-value-container',
-                                      children: [
-                                        {
-                                          input: {
-                                            key: `meta-input-${tab.id}-${key}`,
-                                            type: inputType,
-                                            class: 'meta-input',
-                                            readonly: () => {
-                                              const listInner = getState('openTabs', []);
-                                              const itemInner = listInner.find(x => x.id === tab.id);
-                                              return (!itemInner || !itemInner.isEditMode) ? 'readonly' : undefined;
-                                            },
-                                            disabled: () => {
-                                              const listInner = getState('openTabs', []);
-                                              const itemInner = listInner.find(x => x.id === tab.id);
-                                              return (!itemInner || !itemInner.isEditMode) ? 'disabled' : undefined;
-                                            },
-                                            value: isCheckbox ? undefined : displayVal,
-                                            checked: isCheckbox ? !!val : undefined,
-                                            onchange: (e) => {
-                                              const listInner = getState('openTabs', []);
-                                              const itemInner = listInner.find(x => x.id === tab.id);
-                                              if (itemInner && itemInner.isEditMode) {
-                                                updateMetaProp(itemInner, key, e, getState, setState);
-                                              }
-                                            }
-                                          }
-                                        },
-                                        () => {
-                                          const listInner = getState('openTabs', []);
-                                          const itemInner = listInner.find(x => x.id === tab.id);
-                                          return itemInner && itemInner.isEditMode ? {
-                                            button: {
-                                              key: `meta-delete-${tab.id}-${key}`,
-                                              class: 'delete-prop btn-delete-prop',
-                                              text: '✕',
-                                              onclick: () => deleteMetaProp(tab, key, getState, setState)
-                                            }
-                                          } : null;
-                                        }
-                                      ]
-                                    }
-                                  }
-                                ]
-                              }
-                            });
-                          });
-
-                          return fields;
-                        }
-                      }
-                    }
-                  ]
-                }
-              },
-              // Editor Content Body
-              {
-                div: {
-                  key: 'body-container-' + tab.id,
-                  class: 'editor-body-container',
-                  children: () => {
-                    const list = getState('openTabs', [], false);
-                    const item = list.find(x => x.id === tab.id);
-                    if (!item) return [];
-
-                    const children = [
-                      // Print only metadata
-                      {
-                        pre: {
-                          key: 'print-meta-' + tab.id,
-                          class: 'print-only-metadata',
-                          style: () => {
-                            const listInner = getState('openTabs', []);
-                            const itemInner = listInner.find(x => x.id === tab.id);
-                            if (itemInner && itemInner.metadata) {
-                              const cleanMeta = Object.fromEntries(
-                                Object.entries(itemInner.metadata).filter(([k]) => !k.startsWith('_'))
-                              );
-                              if (Object.keys(cleanMeta).length > 0) return {};
-                            }
-                            return { display: 'none' };
-                          },
-                          children: [
-                            {
-                              code: {
-                                key: 'print-code-' + tab.id,
-                                text: () => {
-                                  const listInner = getState('openTabs', []);
-                                  const itemInner = listInner.find(x => x.id === tab.id);
-                                  if (itemInner && itemInner.metadata) {
-                                    const cleanMeta = Object.fromEntries(
-                                      Object.entries(itemInner.metadata).filter(([k]) => !k.startsWith('_'))
-                                    );
-                                    if (Object.keys(cleanMeta).length > 0) {
-                                      return jsyaml.dump(cleanMeta, { sortKeys: true }).trim();
-                                    }
-                                  }
-                                  return "";
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      },
-                      // Hidden copy of body viewer used for printing
-                      {
-                        div: {
-                          key: 'print-body-' + tab.id,
-                          class: 'print-only-body-viewer',
-                          innerHTML: () => {
-                            const listInner = getState('openTabs', []);
-                            const itemInner = listInner.find(x => x.id === tab.id);
-                            if (itemInner) {
-                              return renderMarkdown(itemInner.content || "");
-                            }
-                            return "";
-                          }
-                        }
-                      }
-                    ];
-
-                    const isTabEdit = item.isEditMode;
-
-                    if (isTabEdit) {
-                      children.push({
-                        textarea: {
-                          key: 'textarea-' + tab.id,
-                          id: `textarea-editor-${tab.id}`,
-                          style: { display: 'none' }
-                        }
-                      });
-                    } else {
-                      children.push({
-                        div: {
-                          key: 'viewer-' + tab.id,
-                          id: `view-content-${tab.id}`,
-                          class: 'body-viewer'
-                        }
-                      });
-                    }
-
-                    return children;
+                      return x;
+                    });
+                    setState('openTabs', updatedTabs);
+                    if (window.saveSessionState) window.saveSessionState();
                   }
                 }
               }
             ]
           }
+        };
+      }
+
+      // Visual Mode (Rich Editor or Previewer)
+      return {
+        div: {
+          key: curr.id + '-visual',
+          class: `editor-tab-container ${isActive ? 'active' : 'inactive'} ${!isEdit ? 'readonly-mode' : ''}`,
+          style: isActive ? {
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1',
+            minHeight: '0',
+            minWidth: '0'
+          } : {
+            display: 'none'
+          },
+          // Reactive attribute helper to hook into mount/update/state changes of this specific tab
+          'data-init-tab': () => {
+            const activeIdValInner = getState('activeTabId');
+            const activeTabEditModeInner = getState('activeTabEditMode');
+            const isActiveInner = curr.id === activeIdValInner;
+            const isEditInner = isActiveInner ? activeTabEditModeInner : curr.isEditMode;
+
+            // If in view mode, track content changes reactively
+            if (!isEditInner) {
+              const listInner = getState('openTabs', []);
+              const currInner = listInner.find(x => x.id === curr.id);
+              if (currInner) {
+                const content = currInner.content;
+              }
+            }
+
+            console.log(`[renderTabEditor] data-init-tab evaluation for ${curr.id}: isActive=${isActiveInner}, isEdit=${isEditInner}`);
+
+            setTimeout(() => {
+              const listInner = getState('openTabs', [], false);
+              const currInner = listInner.find(x => x.id === curr.id) || curr;
+
+              if (isEditInner) {
+                if (currInner.lastRenderedMode !== 'edit') {
+                  destroyEasyMDE(currInner); // ensure clean state
+                  currInner.lastRenderedMode = 'edit';
+                }
+                if (isActiveInner) {
+                  initEasyMDE(currInner);
+                  if (mdeInstances[curr.id]) {
+                    mdeInstances[curr.id].codemirror.refresh();
+                  }
+                }
+              } else {
+                const viewEl = document.getElementById(`view-content-${curr.id}`);
+                if (viewEl) {
+                  const contentChanged = currInner.lastRenderedContent !== currInner.content;
+                  const modeChanged = currInner.lastRenderedMode !== 'view';
+                  const isEmpty = !viewEl.innerHTML;
+
+                  if (modeChanged || contentChanged || isEmpty) {
+                    if (currInner.lastRenderedMode === 'edit') {
+                      destroyEasyMDE(currInner);
+                    }
+                    currInner.lastRenderedMode = 'view';
+                    currInner.lastRenderedContent = currInner.content;
+                    renderMarkdownView(currInner);
+                  }
+                }
+              }
+            }, 50);
+
+            return `${isEditInner ? 'edit' : 'view'}-${isActiveInner ? 'active' : 'inactive'}`;
+          },
+          children: [
+            {
+              div: {
+                key: 'visual-container-' + curr.id,
+                class: 'visual-editor-container',
+                children: [
+                  // Inbox Banner
+                  () => {
+                    const listInner = getState('openTabs', []);
+                    const itemInner = listInner.find(x => x.id === curr.id);
+                    if (!itemInner || !itemInner.metadata || !itemInner.metadata._inbox) return null;
+                    return {
+                      div: {
+                        key: 'inbox-banner-' + curr.id,
+                        class: 'inbox-banner',
+                        children: [
+                          {
+                            span: {
+                              key: 'inbox-icon-' + curr.id,
+                              class: 'material-symbols-rounded',
+                              style: { color: 'var(--md-sys-color-primary)', marginRight: '0.5rem' },
+                              text: 'inbox'
+                            }
+                          },
+                          {
+                            span: {
+                              key: 'inbox-text-' + curr.id,
+                              style: { flex: '1', fontWeight: '500' },
+                              text: 'This note is in your Inbox (unprocessed).'
+                            }
+                          },
+                          {
+                            button: {
+                              key: 'inbox-btn-' + curr.id,
+                              class: 'btn-process-inbox',
+                              text: 'Mark Processed',
+                              onclick: (e) => {
+                                e.stopPropagation();
+                                if (window.appInstance) {
+                                  window.appInstance.actions.processInboxNote(curr.id);
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    };
+                  },
+                  // Metadata Properties Form
+                  {
+                    div: {
+                      key: 'meta-form-' + curr.id,
+                      id: `metadata-form-${curr.id}`,
+                      class: () => {
+                        const listInner = getState('openTabs', []);
+                        const itemInner = listInner.find(x => x.id === curr.id);
+                        const isCollapsed = !(itemInner && itemInner.metaVisible);
+                        const isEditInner = itemInner ? itemInner.isEditMode : false;
+                        return `metadata-form ${!isEditInner ? 'view-only' : ''} ${isCollapsed ? 'collapsed' : ''}`;
+                      },
+                      children: [
+                        {
+                          div: {
+                            key: 'meta-header-' + curr.id,
+                            class: 'meta-header',
+                            onclick: (e) => {
+                              const listInner = getState('openTabs');
+                              const currentTab = listInner.find(x => x.id === curr.id) || curr;
+                              const nextVisible = !currentTab.metaVisible;
+
+                              const updatedTabs = listInner.map(x => {
+                                if (x.id === curr.id) {
+                                  return { ...x, metaVisible: nextVisible };
+                                }
+                                return x;
+                              });
+                              setState('openTabs', updatedTabs);
+                              if (window.saveSessionState) window.saveSessionState();
+
+                              const form = document.getElementById(`metadata-form-${curr.id}`);
+                              if (form) {
+                                form.classList.toggle('collapsed', !nextVisible);
+                              }
+                            },
+                            children: [
+                              {
+                                span: {
+                                  key: 'meta-collapse-icon-' + curr.id,
+                                  class: 'material-symbols-rounded meta-toggle-icon',
+                                  text: 'expand_more'
+                                }
+                              },
+                              {
+                                span: {
+                                  key: 'meta-title-' + curr.id,
+                                  class: 'meta-title',
+                                  text: 'Properties'
+                                }
+                              },
+                              () => {
+                                const listInner = getState('openTabs', []);
+                                const itemInner = listInner.find(x => x.id === curr.id);
+                                const isEditInner = itemInner ? itemInner.isEditMode : false;
+                                if (itemInner && itemInner.metaVisible && isEditInner) {
+                                  return {
+                                    button: {
+                                      key: 'btn-add-prop-' + curr.id,
+                                      class: 'btn-add-prop',
+                                      text: 'Add Property',
+                                      onclick: (e) => {
+                                        e.stopPropagation();
+                                        addMetaProp(curr, getState, setState);
+                                      }
+                                    }
+                                  };
+                                }
+                                return null;
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          div: {
+                            key: 'meta-fields-' + curr.id,
+                            class: 'meta-fields-container',
+                            children: () => {
+                              const listInner = getState('openTabs', []);
+                              const itemInner = listInner.find(x => x.id === curr.id);
+                              if (!itemInner || !itemInner.metadata) return [];
+
+                              const fields = [];
+                              const cleanMeta = Object.fromEntries(
+                                Object.entries(itemInner.metadata).filter(([k]) => !k.startsWith('_'))
+                              );
+
+                              Object.entries(cleanMeta).forEach(([key, val]) => {
+                                const inputType = getInputType(key, val, itemInner.class || itemInner.type, getState);
+                                const isCheckbox = inputType === 'checkbox';
+                                const displayVal = val === null || val === undefined ? '' : val;
+
+                                fields.push({
+                                  div: {
+                                    key: `meta-field-${curr.id}-${key}`,
+                                    class: 'meta-field',
+                                    children: [
+                                      {
+                                        label: {
+                                          key: `meta-label-${curr.id}-${key}`,
+                                          class: 'meta-label',
+                                          text: key + ':'
+                                        }
+                                      },
+                                      {
+                                        input: {
+                                          key: `meta-input-${curr.id}-${key}`,
+                                          type: inputType,
+                                          class: 'meta-input' + (inputType === 'number' ? ' meta-input-number' : inputType === 'date' ? ' meta-input-date' : ''),
+                                          readonly: () => {
+                                            const listInner2 = getState('openTabs', []);
+                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                            return (!itemInner2 || !itemInner2.isEditMode) ? 'readonly' : undefined;
+                                          },
+                                          disabled: () => {
+                                            const listInner2 = getState('openTabs', []);
+                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                            return (!itemInner2 || !itemInner2.isEditMode) ? 'disabled' : undefined;
+                                          },
+                                          value: isCheckbox ? undefined : displayVal,
+                                          checked: isCheckbox ? !!val : undefined,
+                                          onchange: (e) => {
+                                            const listInner2 = getState('openTabs', []);
+                                            const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                            if (itemInner2 && itemInner2.isEditMode) {
+                                              updateMetaProp(itemInner2, key, e, getState, setState);
+                                            }
+                                          }
+                                        }
+                                      },
+                                      () => {
+                                        const listInner2 = getState('openTabs', []);
+                                        const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                        return itemInner2 && itemInner2.isEditMode ? {
+                                          button: {
+                                            key: `meta-delete-${curr.id}-${key}`,
+                                            class: 'delete-prop btn-delete-prop',
+                                            text: '✕',
+                                            onclick: () => deleteMetaProp(curr, key, getState, setState)
+                                          }
+                                        } : null;
+                                      }
+                                    ]
+                                  }
+                                });
+                              });
+
+                              return fields;
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  // Editor Content Body
+                  {
+                    div: {
+                      key: 'body-container-' + curr.id,
+                      class: 'editor-body-container',
+                      children: () => {
+                        const activeIdValInner = getState('activeTabId');
+                        const isActiveInner = curr.id === activeIdValInner;
+                        const isEditInner = isActiveInner ? getState('activeTabEditMode', false) : (curr.isEditMode || false);
+                        const isRawInner = isActiveInner ? getState('activeTabRawMode', false) : (curr.isRawMode || false);
+
+                        const listInner = getState('openTabs', [], false);
+                        const itemInner = listInner.find(x => x.id === curr.id);
+                        if (!itemInner) return [];
+
+                        const children = [
+                          // Print only metadata
+                          {
+                            pre: {
+                              key: 'print-meta-' + curr.id,
+                              class: 'print-only-metadata',
+                              style: () => {
+                                const listInner2 = getState('openTabs', [], false);
+                                const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                if (itemInner2 && itemInner2.metadata) {
+                                  const cleanMeta = Object.fromEntries(
+                                    Object.entries(itemInner2.metadata).filter(([k]) => !k.startsWith('_'))
+                                  );
+                                  if (Object.keys(cleanMeta).length > 0) return {};
+                                }
+                                return { display: 'none' };
+                              },
+                              children: [
+                                {
+                                  code: {
+                                    key: 'print-code-' + curr.id,
+                                    text: () => {
+                                      const listInner2 = getState('openTabs', [], false);
+                                      const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                      if (itemInner2 && itemInner2.metadata) {
+                                        const cleanMeta = Object.fromEntries(
+                                          Object.entries(itemInner2.metadata).filter(([k]) => !k.startsWith('_'))
+                                        );
+                                        if (Object.keys(cleanMeta).length > 0) {
+                                          return jsyaml.dump(cleanMeta, { sortKeys: true }).trim();
+                                        }
+                                      }
+                                      return "";
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          // Hidden copy of body viewer used for printing
+                          {
+                            div: {
+                              key: 'print-body-' + curr.id,
+                              class: 'print-only-body-viewer',
+                              innerHTML: () => {
+                                const listInner2 = getState('openTabs', [], false);
+                                const itemInner2 = listInner2.find(x => x.id === curr.id);
+                                if (itemInner2) {
+                                  return renderMarkdown(itemInner2.content || "");
+                                }
+                                return "";
+                              }
+                            }
+                          }
+                        ];
+
+                        if (isEditInner) {
+                          children.push({
+                            textarea: {
+                              key: 'textarea-' + curr.id,
+                              id: `textarea-editor-${curr.id}`,
+                              style: { display: 'none' }
+                            }
+                          });
+                        } else {
+                          children.push({
+                            div: {
+                              key: 'viewer-' + curr.id,
+                              id: `view-content-${curr.id}`,
+                              class: 'body-viewer'
+                            }
+                          });
+                        }
+
+                        return children;
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         }
-      ]
+      };
     }
   };
 }

@@ -288,7 +288,7 @@ export function renderTabEditor(tab, { getState, setState }) {
         return {
           div: {
             key: curr.id + '-raw',
-            class: `editor-tab-container ${isActive ? 'active' : 'inactive'}`,
+            class: `editor-instance-container ${isActive ? 'active' : 'inactive'}`,
             style: isActive ? {
               height: '100%',
               flex: '1',
@@ -330,7 +330,7 @@ export function renderTabEditor(tab, { getState, setState }) {
       return {
         div: {
           key: curr.id + '-visual',
-          class: `editor-tab-container ${isActive ? 'active' : 'inactive'} ${!isEdit ? 'readonly-mode' : ''}`,
+          class: `editor-instance-container ${isActive ? 'active' : 'inactive'} ${!isEdit ? 'readonly-mode' : ''}`,
           style: isActive ? {
             display: 'flex',
             flexDirection: 'column',
